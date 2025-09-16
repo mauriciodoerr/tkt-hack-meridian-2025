@@ -73,6 +73,10 @@ pub struct EventPaymentContract;
 
 #[contractimpl]
 impl EventPaymentContract {
+    // =====================================
+    // FUNÇÕES DE INICIALIZAÇÃO E CONFIGURAÇÃO
+    // =====================================
+
     /// Inicializa o contrato com taxa padrão e admin
     pub fn initialize(env: Env, admin: Address, default_fee_rate: u32) -> Result<(), ContractError> {
         admin.require_auth();
@@ -95,6 +99,36 @@ impl EventPaymentContract {
         env.storage().instance().set(&CONFIG, &config);
         Ok(())
     }
+
+    /// Consulta configuração do contrato
+    pub fn get_config(env: Env) -> ContractConfig {
+        env.storage().instance().get(&CONFIG).unwrap_or(ContractConfig {
+            default_fee_rate: 500, // 5% padrão
+            admin: env.current_contract_address(),
+            next_event_id: 1,
+        })
+    }
+
+    /// Atualiza taxa padrão (apenas admin)
+    pub fn update_default_fee_rate(env: Env, new_fee_rate: u32) -> Result<(), ContractError> {
+        let mut config: ContractConfig = env.storage().instance().get(&CONFIG)
+            .ok_or(ContractError::ContractNotInitialized)?;
+
+        config.admin.require_auth();
+
+        if new_fee_rate > 10000 {
+            return Err(ContractError::FeeRateExceeds100Percent);
+        }
+
+        config.default_fee_rate = new_fee_rate;
+        env.storage().instance().set(&CONFIG, &config);
+
+        Ok(())
+    }
+
+    // =====================================
+    // FUNÇÕES DE GESTÃO DE EVENTOS
+    // =====================================
 
     /// Cria um novo evento/festival
     pub fn create_event(
@@ -160,6 +194,43 @@ impl EventPaymentContract {
         Ok(event_id)
     }
 
+    /// Ativa ou desativa um evento (apenas organizador)
+    pub fn set_event_status(env: Env, event_id: u64, is_active: bool) -> Result<(), ContractError> {
+        let mut event = Self::get_event(env.clone(), event_id)?;
+
+        // Apenas organizador do evento pode alterar status
+        event.organizer.require_auth();
+
+        event.is_active = is_active;
+
+        let event_key = Self::event_key(event_id);
+        env.storage().persistent().set(&event_key, &event);
+
+        Ok(())
+    }
+
+    /// Atualiza taxa de um evento específico (apenas organizador)
+    pub fn update_event_fee_rate(env: Env, event_id: u64, new_fee_rate: u32) -> Result<(), ContractError> {
+        let mut event = Self::get_event(env.clone(), event_id)?;
+
+        // Apenas organizador do evento pode alterar taxa
+        event.organizer.require_auth();
+
+        if new_fee_rate > 10000 {
+            return Err(ContractError::FeeRateExceeds100Percent);
+        }
+
+        event.fee_rate = new_fee_rate;
+        let event_key = Self::event_key(event_id);
+        env.storage().persistent().set(&event_key, &event);
+
+        Ok(())
+    }
+
+    // =====================================
+    // FUNÇÕES DE CONSULTA
+    // =====================================
+
     /// Consulta informações de um evento
     pub fn get_event(env: Env, event_id: u64) -> Result<Event, ContractError> {
         let event_key = Self::event_key(event_id);
@@ -174,21 +245,6 @@ impl EventPaymentContract {
             .ok_or(ContractError::EventNotFound)?;
 
         Self::get_event(env, event_id)
-    }
-
-    /// Ativa ou desativa um evento (apenas organizador ou admin)
-    pub fn set_event_status(env: Env, event_id: u64, is_active: bool) -> Result<(), ContractError> {
-        let mut event = Self::get_event(env.clone(), event_id)?;
-
-        // Apenas organizador do evento ou admin podem alterar status
-        event.organizer.require_auth();
-
-        event.is_active = is_active;
-
-        let event_key = Self::event_key(event_id);
-        env.storage().persistent().set(&event_key, &event);
-
-        Ok(())
     }
 
     /// Lista todos os eventos (limitado para evitar problemas de gas)
@@ -212,6 +268,34 @@ impl EventPaymentContract {
 
         Ok(events)
     }
+
+    /// Consulta saldo geral de uma carteira
+    pub fn balance(env: Env, address: Address) -> i128 {
+        let balance_key = Self::balance_key(&address);
+        env.storage().temporary().get(&balance_key).unwrap_or(0)
+    }
+
+    /// Consulta saldo de uma carteira para um evento específico
+    pub fn event_balance(env: Env, event_id: u64, address: Address) -> i128 {
+        let balance_key = Self::event_balance_key(event_id, &address);
+        env.storage().temporary().get(&balance_key).unwrap_or(0)
+    }
+
+    /// Consulta taxas acumuladas de um evento
+    pub fn get_event_fees(env: Env, event_id: u64) -> i128 {
+        let fee_key = Self::event_fee_key(event_id);
+        env.storage().persistent().get(&fee_key).unwrap_or(0)
+    }
+
+    /// Consulta o limite autorizado para pagamento de fees
+    pub fn get_fee_authorization(env: Env, fee_payer: Address) -> i128 {
+        let allowance_key = Self::allowance_key(&fee_payer);
+        env.storage().persistent().get(&allowance_key).unwrap_or(0)
+    }
+
+    // =====================================
+    // FUNÇÕES DE DEPÓSITO
+    // =====================================
 
     /// Deposita fundos no contrato para uma carteira específica (geral)
     pub fn deposit(env: Env, from: Address, amount: i128) -> Result<(), ContractError> {
@@ -251,17 +335,9 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Consulta saldo geral de uma carteira
-    pub fn balance(env: Env, address: Address) -> i128 {
-        let balance_key = Self::balance_key(&address);
-        env.storage().temporary().get(&balance_key).unwrap_or(0)
-    }
-
-    /// Consulta saldo de uma carteira para um evento específico
-    pub fn event_balance(env: Env, event_id: u64, address: Address) -> i128 {
-        let balance_key = Self::event_balance_key(event_id, &address);
-        env.storage().temporary().get(&balance_key).unwrap_or(0)
-    }
+    // =====================================
+    // FUNÇÕES DE PAGAMENTO
+    // =====================================
 
     /// Realiza pagamento para um evento específico (organizador recebe as taxas)
     pub fn event_payment(
@@ -386,78 +462,6 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Consulta configuração do contrato
-    pub fn get_config(env: Env) -> ContractConfig {
-        env.storage().instance().get(&CONFIG).unwrap_or(ContractConfig {
-            default_fee_rate: 500, // 5% padrão
-            admin: env.current_contract_address(),
-            next_event_id: 1,
-        })
-    }
-
-    /// Atualiza taxa padrão (apenas admin)
-    pub fn update_default_fee_rate(env: Env, new_fee_rate: u32) -> Result<(), ContractError> {
-        let mut config: ContractConfig = env.storage().instance().get(&CONFIG)
-            .ok_or(ContractError::ContractNotInitialized)?;
-
-        config.admin.require_auth();
-
-        if new_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
-        }
-
-        config.default_fee_rate = new_fee_rate;
-        env.storage().instance().set(&CONFIG, &config);
-
-        Ok(())
-    }
-
-    /// Atualiza taxa de um evento específico (apenas organizador ou admin)
-    pub fn update_event_fee_rate(env: Env, event_id: u64, new_fee_rate: u32) -> Result<(), ContractError> {
-        let mut event = Self::get_event(env.clone(), event_id)?;
-
-        // Apenas organizador do evento pode alterar taxa
-        event.organizer.require_auth();
-
-        if new_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
-        }
-
-        event.fee_rate = new_fee_rate;
-        let event_key = Self::event_key(event_id);
-        env.storage().persistent().set(&event_key, &event);
-
-        Ok(())
-    }
-
-    /// Autoriza o contrato a atuar como fee_payer automaticamente
-    pub fn authorize_fee_payments(env: Env, fee_payer: Address, max_fee_amount: i128) -> Result<(), ContractError> {
-        fee_payer.require_auth();
-
-        if max_fee_amount <= 0 {
-            return Err(ContractError::AmountMustBePositive);
-        }
-
-        let allowance_key = Self::allowance_key(&fee_payer);
-        env.storage().persistent().set(&allowance_key, &max_fee_amount);
-
-        Ok(())
-    }
-
-    /// Remove autorização para pagamento automático de fees
-    pub fn revoke_fee_authorization(env: Env, fee_payer: Address) {
-        fee_payer.require_auth();
-
-        let allowance_key = Self::allowance_key(&fee_payer);
-        env.storage().persistent().remove(&allowance_key);
-    }
-
-    /// Consulta o limite autorizado para pagamento de fees
-    pub fn get_fee_authorization(env: Env, fee_payer: Address) -> i128 {
-        let allowance_key = Self::allowance_key(&fee_payer);
-        env.storage().persistent().get(&allowance_key).unwrap_or(0)
-    }
-
     /// Realiza pagamento com fee_payer pré-autorizado (sem assinatura)
     pub fn payment_with_auth_fee_payer(
         env: Env,
@@ -504,7 +508,7 @@ impl EventPaymentContract {
         let to_balance: i128 = env.storage().temporary().get(&to_balance_key).unwrap_or(0);
         env.storage().temporary().set(&to_balance_key, &(to_balance + net_amount));
 
-        // 3. Credita 5% ao pagador de taxa como recompensa
+        // 3. Credita taxa ao pagador de taxa como recompensa
         let fee_payer_balance_key = Self::balance_key(&fee_payer);
         let fee_payer_balance: i128 = env.storage().temporary().get(&fee_payer_balance_key).unwrap_or(0);
         env.storage().temporary().set(&fee_payer_balance_key, &(fee_payer_balance + fee_amount));
@@ -526,11 +530,35 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Consulta taxas acumuladas de um evento
-    pub fn get_event_fees(env: Env, event_id: u64) -> i128 {
-        let fee_key = Self::event_fee_key(event_id);
-        env.storage().persistent().get(&fee_key).unwrap_or(0)
+    // =====================================
+    // FUNÇÕES DE AUTORIZAÇÃO
+    // =====================================
+
+    /// Autoriza o contrato a atuar como fee_payer automaticamente
+    pub fn authorize_fee_payments(env: Env, fee_payer: Address, max_fee_amount: i128) -> Result<(), ContractError> {
+        fee_payer.require_auth();
+
+        if max_fee_amount <= 0 {
+            return Err(ContractError::AmountMustBePositive);
+        }
+
+        let allowance_key = Self::allowance_key(&fee_payer);
+        env.storage().persistent().set(&allowance_key, &max_fee_amount);
+
+        Ok(())
     }
+
+    /// Remove autorização para pagamento automático de fees
+    pub fn revoke_fee_authorization(env: Env, fee_payer: Address) {
+        fee_payer.require_auth();
+
+        let allowance_key = Self::allowance_key(&fee_payer);
+        env.storage().persistent().remove(&allowance_key);
+    }
+
+    // =====================================
+    // FUNÇÕES DE SAQUE
+    // =====================================
 
     /// Permite ao organizador sacar taxas acumuladas (apenas se evento estiver inativo)
     pub fn withdraw_event_fees(env: Env, event_id: u64) -> Result<i128, ContractError> {
@@ -559,6 +587,10 @@ impl EventPaymentContract {
 
         Ok(accumulated_fees)
     }
+
+    // =====================================
+    // FUNÇÕES AUXILIARES
+    // =====================================
 
     // Função auxiliar para gerar chave de saldo geral
     fn balance_key(address: &Address) -> (&'static str, Address) {
@@ -589,7 +621,6 @@ impl EventPaymentContract {
     fn event_fee_key(event_id: u64) -> (&'static str, u64) {
         ("event_fee", event_id)
     }
-
 }
 
 // mod test; // Testes antigos temporariamente desabilitados
