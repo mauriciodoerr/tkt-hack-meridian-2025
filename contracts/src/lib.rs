@@ -233,7 +233,7 @@ impl EventPaymentContract {
         let token = TokenClient::new(&env, &config.token_address);
 
         // Dar allowance para o contrato gastar tokens do organizador
-        token.approve(&organizer, &env.current_contract_address(), &max_allowance, &99999999);
+        token.approve(&organizer, &env.current_contract_address(), &max_allowance, &3110400);
 
         Ok(event_id)
     }
@@ -591,7 +591,7 @@ impl EventPaymentContract {
         let token = TokenClient::new(&env, &config.token_address);
 
         // Chama approve no token para autorizar o contrato
-        token.approve(&fee_payer, &env.current_contract_address(), &max_fee_amount, &99999999);
+        token.approve(&fee_payer, &env.current_contract_address(), &max_fee_amount, &3110400);
 
         Ok(())
     }
@@ -630,7 +630,7 @@ impl EventPaymentContract {
         let new_allowance = current_allowance + additional_allowance;
 
         // Atualizar allowance
-        token.approve(&event.organizer, &env.current_contract_address(), &new_allowance, &99999999);
+        token.approve(&event.organizer, &env.current_contract_address(), &new_allowance, &3110400);
 
         Ok(())
     }
