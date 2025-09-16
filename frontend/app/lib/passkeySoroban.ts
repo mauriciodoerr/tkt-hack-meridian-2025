@@ -195,25 +195,27 @@ export async function invokeWithPasskeyWallet(params: {
 > {
   const { credentialIdBase64Url, contractId, method } = params;
 
-  const scArgs = (params.args ?? []).map((v) =>
-    typeof v === "string"
-      ? nativeToScVal(v, { type: "string" })
-      : v instanceof Uint8Array
-      ? nativeToScVal(v, { type: "bytes" })
-      : nativeToScVal(v)
-  );
+  // TESTE: Argumentos hardcoded para verificar se o problema é na conversão ScVal
+  const scArgs = [
+    nativeToScVal(1, { type: "u64" }), // event_id
+    nativeToScVal("GACYTUFT27EMBUZRXHHY53PTCBI74SLHCXVNPY2QORRWUT4RGWF6EKSI", { type: "string" }), // from
+    nativeToScVal("GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77", { type: "string" }), // to
+    nativeToScVal(10, { type: "i128" }) // amount
+  ];
 
   // 1) Keypair derivado de forma determinística (memoizado)
   const kp = await getPasskeyKeypair(credentialIdBase64Url);
 
-  // 2) Garante que a conta exista (testnet)
+  // 2) Garante que a conta exista (testnet) - APENAS se não for skipFunding
+  // NOTA: O contrato cuida das fees, então não precisamos sempre fundar a conta
   await ensureFundedOnTestnet(kp.publicKey());
 
   // 3) Monta TX com source = wallet do passkey
+  // NOTA: O contrato cuida de todas as fees, incluindo BASE_FEE
   const account = await server.getAccount(kp.publicKey());
   const contract = new Contract(contractId);
   const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
+    fee: '100', // Contrato paga todas as fees
     networkPassphrase: Networks.TESTNET,
   })
     .addOperation(contract.call(method, ...scArgs))
@@ -244,3 +246,4 @@ export async function invokeWithPasskeyWallet(params: {
     txHashPrepared: u8ToHex(prepared.hash()),
   };
 }
+

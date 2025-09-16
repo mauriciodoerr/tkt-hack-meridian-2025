@@ -76,7 +76,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
       type: 'vendor_payment',
       vendorId: 'GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77',
       vendorName: 'Bar do João',
-      eventId: 'event_456',
+      eventId: 1,
       eventName: 'Festival de Música',
       publicKey: 'GABC123...'
     })

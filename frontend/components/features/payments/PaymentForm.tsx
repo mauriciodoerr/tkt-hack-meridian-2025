@@ -14,26 +14,21 @@ import { getContractAddress } from "../../../app/utils/api-config";
 interface PaymentFormProps {
   isOpen: boolean;
   onClose: () => void;
-  vendorData?: {
-    vendorId: string;
-    vendorName: string;
-    eventName: string;
-  };
+  vendorData: {
+    vendorId: string
+    vendorName: string
+    eventId?: number,
+    eventName?: string
+  } | null;
   onPayment: (amount: number, vendorId: string) => void;
 }
 
 /** ===== Usando contrato da configuração centralizada ===== */
 const METHOD_NAME = "event_payment";
-const REGISTER_METHOD = "register_wallet_for_event";
 
-async function mapArgsForEventPayment(amount: number, credentialId: string, vendorId?: string): Promise<any[]> {
+async function mapArgsForEventPayment(amount: number, fromAddress: string, vendorId?: string): Promise<any[]> {
   // Para event_payment: event_id, from, to, amount
   try {
-    // Obtém o endereço real da carteira derivada do passkey
-    const keyMaterial = await deriveKeyFromPasskey(credentialId);
-    const keypair = generateStellarKeypair(keyMaterial);
-    const fromAddress = keypair.publicKey();
-    
     // Por enquanto, vamos usar um event_id fixo para teste
     const event_id = 1; // ID do evento de teste
     const toAddress = vendorId || "GDUKMGUGDZQK6YHYA5Z6AY2G4XDSZPSZ3SW5UN3ARVMO6QSRDWP5YLEX"; // Mock vendor
@@ -52,26 +47,6 @@ async function mapArgsForEventPayment(amount: number, credentialId: string, vend
   }
 }
 
-async function mapArgsForWalletRegistration(credentialId: string): Promise<any[]> {
-  // Para register_wallet_for_event: event_id, wallet
-  try {
-    const keyMaterial = await deriveKeyFromPasskey(credentialId);
-    const keypair = generateStellarKeypair(keyMaterial);
-    const walletAddress = keypair.publicKey();
-    
-    const event_id = 1; // ID do evento de teste
-    
-    console.log('🔐 Argumentos do registro da carteira:', {
-      eventId: event_id,
-      wallet: walletAddress
-    });
-    
-    return [event_id, walletAddress];
-  } catch (error) {
-    console.error('Erro ao gerar argumentos do registro:', error);
-    throw new Error('Falha ao preparar dados do registro');
-  }
-}
 
 function parseContractError(error: any, operation: string): string {
   if (!error) return `Erro desconhecido durante ${operation}`;
@@ -138,74 +113,26 @@ export function PaymentForm({
       const credentialId = await ensurePasskeyWithPrf();
 
       // 2) Obtém endereço da carteira
-      const keyMaterial = await deriveKeyFromPasskey(credentialId);
-      const keypair = generateStellarKeypair(keyMaterial);
-      const walletAddress = keypair.publicKey();
+      //const keyMaterial = await deriveKeyFromPasskey(credentialId);
+      //const keypair = generateStellarKeypair(keyMaterial);
+      const walletAddress = localStorage.getItem('passkeyWalletPub');
 
       // 3) Obtém ID do contrato
-      const contractId = getContractAddress();
+      const CONTRACT_ADDRESS = getContractAddress();
 
-      // 4) Registra a carteira do pagador no evento
-      console.log('📝 Registrando carteira do pagador no evento...');
-      const registerArgs = await mapArgsForWalletRegistration(credentialId);
-      
-      const registerRes = await invokeWithPasskeyWallet({
-        credentialIdBase64Url: credentialId,
-        contractId: contractId,
-        method: REGISTER_METHOD,
-        args: registerArgs,
-      });
-
-      if (registerRes.status === "SIMULATION_FAILED") {
-        const errorMsg = parseContractError(registerRes.diag?.error, "registro da carteira do pagador");
-        console.error("❌ Falha no registro da carteira do pagador:", errorMsg);
-        
-        // Se o erro for que a carteira já está registrada, podemos continuar
-        if (registerRes.diag?.error?.toString().includes('WalletAlreadyRegistered')) {
-          console.log('✅ Carteira do pagador já estava registrada, continuando...');
-        } else {
-          throw new Error(errorMsg);
-        }
-      } else {
-        console.log('✅ Carteira do pagador registrada com sucesso');
-      }
-
-      // 5) Registra a carteira do vendor no evento
-      console.log('📝 Registrando carteira do vendor no evento...');
-      const vendorAddress = vendorData?.vendorId || "GDUKMGUGDZQK6YHYA5Z6AY2G4XDSZPSZ3SW5UN3ARVMO6QSRDWP5YLEX";
-      const registerVendorArgs = [1, vendorAddress]; // eventId, wallet
-      
-      const registerVendorRes = await invokeWithPasskeyWallet({
-        credentialIdBase64Url: credentialId,
-        contractId: contractId,
-        method: REGISTER_METHOD,
-        args: registerVendorArgs,
-      });
-
-      if (registerVendorRes.status === "SIMULATION_FAILED") {
-        const errorMsg = parseContractError(registerVendorRes.diag?.error, "registro da carteira do vendor");
-        console.error("❌ Falha no registro da carteira do vendor:", errorMsg);
-        
-        // Se o erro for que a carteira já está registrada, podemos continuar
-        if (registerVendorRes.diag?.error?.toString().includes('WalletAlreadyRegistered')) {
-          console.log('✅ Carteira do vendor já estava registrada, continuando...');
-        } else {
-          console.log('⚠️ Vendor não pôde ser registrado, mas continuando...');
-        }
-      } else {
-        console.log('✅ Carteira do vendor registrada com sucesso');
-      }
-
-      // 6) Args p/ contrato de pagamento do evento
+      // 4) Args p/ contrato de pagamento do evento
       const value = parseFloat(amount);
       if (!value || value <= 0) throw new Error("Valor inválido.");
-      const args = await mapArgsForEventPayment(value, credentialId, vendorData?.vendorId);
+      //const args = await mapArgsForEventPayment(value, walletAddress, vendorData?.vendorId);
 
-      // 7) Invoca contrato de pagamento do evento
+      const args = [vendorData?.eventId, walletAddress, vendorData?.vendorId, value];
+
+      // 5) Invoca contrato de pagamento do evento
       console.log('💰 Executando pagamento do evento...');
+      console.log('📋 Nota: O contrato cuida das fees, nossa carteira não paga nada');
       const res = await invokeWithPasskeyWallet({
         credentialIdBase64Url: credentialId,
-        contractId: contractId,
+        contractId: CONTRACT_ADDRESS,
         method: METHOD_NAME,
         args,
       });

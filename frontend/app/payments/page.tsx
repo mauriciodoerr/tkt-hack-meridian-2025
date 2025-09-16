@@ -21,7 +21,8 @@ export default function PaymentsPage() {
   const [vendorData, setVendorData] = useState<{
     vendorId: string
     vendorName: string
-    eventId?: string
+    eventId?: number,
+    eventName?: string
   } | null>(null)
   const [transactions, setTransactions] = useState<Payment[]>([])
   const [user, setUser] = useState<User | null>(null)
@@ -72,7 +73,8 @@ export default function PaymentsPage() {
       setVendorData({
         vendorId: parsedData.vendorId,
         vendorName: parsedData.vendorName,
-        eventId: parsedData.eventId
+        eventId: parsedData.eventId,
+        eventName: parsedData.eventName
       })
       setShowQRScanner(false)
       setShowPaymentForm(true)
@@ -83,7 +85,8 @@ export default function PaymentsPage() {
 
   const handlePayment = async (amount: number, description: string) => {
     try {
-      const response = await apiClientInstance.transferP2P(vendorData?.vendorId || '', amount)
+      const fromAddress = localStorage.getItem('passkeyWalletPub');
+      const response = await apiClientInstance.transferP2P(fromAddress || '', vendorData?.vendorId || '', amount)
       
       if (response.success) {
         // Refresh data
@@ -99,39 +102,39 @@ export default function PaymentsPage() {
     }
   }
 
-  const handleTokenPurchase = async (amount: number) => {
-    try {
-      const response = await apiClientInstance.buyTokens(amount)
+  // const handleTokenPurchase = async (amount: number) => {
+  //   try {
+  //     const response = await apiClientInstance.buyTokens(amount)
       
-      if (response.success) {
-        // Refresh data
-        await loadData()
-        setShowTokenPurchase(false)
-        console.log('Token purchase successful:', response.data)
-      } else {
-        console.error('Token purchase failed:', response.error)
-      }
-    } catch (err) {
-      console.error('Token purchase error:', err)
-    }
-  }
+  //     if (response.success) {
+  //       // Refresh data
+  //       await loadData()
+  //       setShowTokenPurchase(false)
+  //       console.log('Token purchase successful:', response.data)
+  //     } else {
+  //       console.error('Token purchase failed:', response.error)
+  //     }
+  //   } catch (err) {
+  //     console.error('Token purchase error:', err)
+  //   }
+  // }
 
-  const handleP2PTransfer = async (recipientId: string, amount: number, description: string) => {
-    try {
-      const response = await apiClientInstance.transferP2P(recipientId, amount)
+  // const handleP2PTransfer = async (recipientId: string, amount: number, description: string) => {
+  //   try {
+  //     const response = await apiClientInstance.transferP2P(recipientId, amount)
       
-      if (response.success) {
-        // Refresh data
-        await loadData()
-        setShowP2PTransfer(false)
-        console.log('P2P transfer successful:', response.data)
-      } else {
-        console.error('P2P transfer failed:', response.error)
-      }
-    } catch (err) {
-      console.error('P2P transfer error:', err)
-    }
-  }
+  //     if (response.success) {
+  //       // Refresh data
+  //       await loadData()
+  //       setShowP2PTransfer(false)
+  //       console.log('P2P transfer successful:', response.data)
+  //     } else {
+  //       console.error('P2P transfer failed:', response.error)
+  //     }
+  //   } catch (err) {
+  //     console.error('P2P transfer error:', err)
+  //   }
+  // }
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -251,21 +254,21 @@ export default function PaymentsPage() {
             <span className="text-sm">Escanear QR</span>
           </Button>
 
-          <Button
+          {/* <Button
             onClick={() => setShowTokenPurchase(true)}
             className="bg-green-500 hover:bg-green-600 text-white h-20 flex flex-col items-center justify-center"
           >
             <CreditCard className="w-6 h-6 mb-2" />
             <span className="text-sm">Comprar TKT</span>
-          </Button>
+          </Button> */}
 
-          <Button
+          {/* <Button
             onClick={() => setShowP2PTransfer(true)}
             className="bg-blue-500 hover:bg-blue-600 text-white h-20 flex flex-col items-center justify-center"
           >
             <Send className="w-6 h-6 mb-2" />
             <span className="text-sm">Transferir</span>
-          </Button>
+          </Button> */}
 
           <Button
             onClick={() => setShowInviteModal(true)}
@@ -344,6 +347,7 @@ export default function PaymentsPage() {
           vendorData={vendorData}
           onPayment={handlePayment}
         />
+        {/*
 
         <TokenPurchaseForm
           isOpen={showTokenPurchase}
@@ -351,11 +355,11 @@ export default function PaymentsPage() {
           onPurchase={handleTokenPurchase}
         />
 
-        <P2PTransferForm
+        {/* <P2PTransferForm
           isOpen={showP2PTransfer}
           onClose={() => setShowP2PTransfer(false)}
           onTransfer={handleP2PTransfer}
-        />
+        /> */}
 
         <InviteFriendGeneralModal
           isOpen={showInviteModal}
