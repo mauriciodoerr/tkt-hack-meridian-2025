@@ -74,7 +74,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
     // Simular dados de um QR Code de vendedor
     const mockQRData = JSON.stringify({
       type: 'vendor_payment',
-      vendorId: 'vendor_123',
+      vendorId: 'GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77',
       vendorName: 'Bar do João',
       eventId: 'event_456',
       eventName: 'Festival de Música',
@@ -178,7 +178,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
                 </div>
                 <div className="p-3 bg-white/5 rounded-lg">
                   <p className="text-sm text-gray-400">ID do Vendedor:</p>
-                  <p className="text-white font-mono text-sm">vendor_123</p>
+                  <p className="text-white font-mono text-sm">GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77</p>
                 </div>
               </div>
             </CardContent>

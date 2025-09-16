@@ -32,6 +32,20 @@ import {
 // Simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+// Retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 1000, // 1 second
+  maxDelay: 5000,  // 5 seconds
+  backoffFactor: 2
+}
+
+// Calculate delay with exponential backoff
+const calculateDelay = (attempt: number): number => {
+  const delay = RETRY_CONFIG.baseDelay * Math.pow(RETRY_CONFIG.backoffFactor, attempt - 1)
+  return Math.min(delay, RETRY_CONFIG.maxDelay)
+}
+
 // Horizon API Client class
 class HorizonClient {
   private baseURL: string
@@ -47,7 +61,7 @@ class HorizonClient {
     })
   }
 
-  // Generic request method
+  // Generic request method with retry logic
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -55,37 +69,68 @@ class HorizonClient {
     console.log('🚀 Horizon Request:', { endpoint, method: options.method || 'GET' })
     
     const url = buildHorizonUrl(endpoint)
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    }
-
-    try {
-      const response = await fetch(url, config)
-      const data = await response.json()
-
-      if (!response.ok) {
-        return {
-          success: false,
-          data: null as any,
-          error: data.detail || data.title || 'Horizon request failed'
+    
+    for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+      try {
+        const config: RequestInit = {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+          signal: AbortSignal.timeout(this.timeout),
+          ...options,
         }
-      }
 
-      return {
-        success: true,
-        data: data,
-        message: 'Success'
+        console.log(`🔄 Tentativa ${attempt}/${RETRY_CONFIG.maxRetries} para ${endpoint}`)
+        
+        const response = await fetch(url, config)
+        
+        // Se a resposta não é ok, não faz retry (erro do servidor)
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          return {
+            success: false,
+            data: null as any,
+            error: data.detail || data.title || `HTTP ${response.status}: ${response.statusText}`
+          }
+        }
+
+        const data = await response.json()
+        console.log(`✅ Sucesso na tentativa ${attempt} para ${endpoint}`)
+        
+        return {
+          success: true,
+          data: data,
+          message: 'Success'
+        }
+        
+      } catch (error) {
+        const isLastAttempt = attempt === RETRY_CONFIG.maxRetries
+        const errorMessage = error instanceof Error ? error.message : 'Network error'
+        
+        console.log(`❌ Tentativa ${attempt} falhou para ${endpoint}:`, errorMessage)
+        
+        // Se é a última tentativa, retorna o erro
+        if (isLastAttempt) {
+          return {
+            success: false,
+            data: null as any,
+            error: `Falha após ${RETRY_CONFIG.maxRetries} tentativas: ${errorMessage}`
+          }
+        }
+        
+        // Se não é a última tentativa, aguarda antes de tentar novamente
+        const delayMs = calculateDelay(attempt)
+        console.log(`⏳ Aguardando ${delayMs}ms antes da próxima tentativa...`)
+        await delay(delayMs)
       }
-    } catch (error) {
-      return {
-        success: false,
-        data: null as any,
-        error: error instanceof Error ? error.message : 'Network error'
-      }
+    }
+    
+    // Fallback (não deveria chegar aqui)
+    return {
+      success: false,
+      data: null as any,
+      error: 'Erro inesperado no sistema de retry'
     }
   }
 

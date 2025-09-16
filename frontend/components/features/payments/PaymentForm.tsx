@@ -6,7 +6,10 @@ import { CreditCard, Wallet, Zap, CheckCircle, ArrowRight } from "lucide-react";
 import {
   ensurePasskeyWithPrf,
   invokeWithPasskeyWallet,
+  deriveKeyFromPasskey,
+  generateStellarKeypair,
 } from "../../../app/lib/passkeySoroban";
+import { getContractAddress } from "../../../app/utils/api-config";
 
 interface PaymentFormProps {
   isOpen: boolean;
@@ -19,16 +22,96 @@ interface PaymentFormProps {
   onPayment: (amount: number, vendorId: string) => void;
 }
 
-/** ===== Ajuste para o seu contrato real ===== */
-const CONTRACT_ID = "CDVH2KYGNMCSYILKGWC5PBEBKRF636CWOZEXQ37AGZG26MNGHYLNVAGB";
-const METHOD_NAME = "get_config"; // ex.: "pay"
+/** ===== Usando contrato da configuração centralizada ===== */
+const METHOD_NAME = "event_payment";
+const REGISTER_METHOD = "register_wallet_for_event";
 
-function mapArgsForContract(amount: number, vendorId?: string): any[] {
-  // Exemplo para "hello":
-  return ["world"];
-  // Exemplo para "pay":
-  // return [String(amount), vendorId ?? ""];
+async function mapArgsForEventPayment(amount: number, credentialId: string, vendorId?: string): Promise<any[]> {
+  // Para event_payment: event_id, from, to, amount
+  try {
+    // Obtém o endereço real da carteira derivada do passkey
+    const keyMaterial = await deriveKeyFromPasskey(credentialId);
+    const keypair = generateStellarKeypair(keyMaterial);
+    const fromAddress = keypair.publicKey();
+    
+    // Por enquanto, vamos usar um event_id fixo para teste
+    const event_id = 1; // ID do evento de teste
+    const toAddress = vendorId || "GDUKMGUGDZQK6YHYA5Z6AY2G4XDSZPSZ3SW5UN3ARVMO6QSRDWP5YLEX"; // Mock vendor
+    
+    console.log('🔐 Argumentos do pagamento do evento:', {
+      eventId: event_id,
+      from: fromAddress,
+      to: toAddress,
+      amount
+    });
+    
+    return [event_id, fromAddress, toAddress, amount];
+  } catch (error) {
+    console.error('Erro ao gerar argumentos do contrato:', error);
+    throw new Error('Falha ao preparar dados da transação');
+  }
 }
+
+async function mapArgsForWalletRegistration(credentialId: string): Promise<any[]> {
+  // Para register_wallet_for_event: event_id, wallet
+  try {
+    const keyMaterial = await deriveKeyFromPasskey(credentialId);
+    const keypair = generateStellarKeypair(keyMaterial);
+    const walletAddress = keypair.publicKey();
+    
+    const event_id = 1; // ID do evento de teste
+    
+    console.log('🔐 Argumentos do registro da carteira:', {
+      eventId: event_id,
+      wallet: walletAddress
+    });
+    
+    return [event_id, walletAddress];
+  } catch (error) {
+    console.error('Erro ao gerar argumentos do registro:', error);
+    throw new Error('Falha ao preparar dados do registro');
+  }
+}
+
+function parseContractError(error: any, operation: string): string {
+  if (!error) return `Erro desconhecido durante ${operation}`;
+  
+  const errorStr = error.toString();
+  console.log(`🔍 Analisando erro do contrato para ${operation}:`, errorStr);
+  
+  // Mapear erros comuns do Stellar/Soroban
+  if (errorStr.includes('WasmVm, InvalidAction')) {
+    return `Ação inválida no contrato durante ${operation}. Verifique se o evento existe e se os parâmetros estão corretos.`;
+  }
+  
+  if (errorStr.includes('WasmVm, UnexpectedSize')) {
+    return `Tamanho inesperado de dados durante ${operation}. Verifique os argumentos passados.`;
+  }
+  
+  if (errorStr.includes('WasmVm, UnreachableCodeReached')) {
+    return `Erro interno do contrato durante ${operation}. O contrato pode estar em estado inválido.`;
+  }
+  
+  if (errorStr.includes('WalletAlreadyRegistered')) {
+    return `Carteira já registrada para este evento.`;
+  }
+  
+  if (errorStr.includes('EventNotFound')) {
+    return `Evento não encontrado. Verifique se o evento foi criado.`;
+  }
+  
+  if (errorStr.includes('InsufficientBalance')) {
+    return `Saldo insuficiente para realizar ${operation}.`;
+  }
+  
+  if (errorStr.includes('Unauthorized')) {
+    return `Não autorizado para realizar ${operation}.`;
+  }
+  
+  // Se não conseguir mapear, retorna o erro original com contexto
+  return `Erro durante ${operation}: ${errorStr}`;
+}
+
 
 export function PaymentForm({
   isOpen,
@@ -54,23 +137,84 @@ export function PaymentForm({
       // 1) Garante passkey com PRF (não recria se já existir)
       const credentialId = await ensurePasskeyWithPrf();
 
-      // 2) Args p/ contrato
+      // 2) Obtém endereço da carteira
+      const keyMaterial = await deriveKeyFromPasskey(credentialId);
+      const keypair = generateStellarKeypair(keyMaterial);
+      const walletAddress = keypair.publicKey();
+
+      // 3) Obtém ID do contrato
+      const contractId = getContractAddress();
+
+      // 4) Registra a carteira do pagador no evento
+      console.log('📝 Registrando carteira do pagador no evento...');
+      const registerArgs = await mapArgsForWalletRegistration(credentialId);
+      
+      const registerRes = await invokeWithPasskeyWallet({
+        credentialIdBase64Url: credentialId,
+        contractId: contractId,
+        method: REGISTER_METHOD,
+        args: registerArgs,
+      });
+
+      if (registerRes.status === "SIMULATION_FAILED") {
+        const errorMsg = parseContractError(registerRes.diag?.error, "registro da carteira do pagador");
+        console.error("❌ Falha no registro da carteira do pagador:", errorMsg);
+        
+        // Se o erro for que a carteira já está registrada, podemos continuar
+        if (registerRes.diag?.error?.toString().includes('WalletAlreadyRegistered')) {
+          console.log('✅ Carteira do pagador já estava registrada, continuando...');
+        } else {
+          throw new Error(errorMsg);
+        }
+      } else {
+        console.log('✅ Carteira do pagador registrada com sucesso');
+      }
+
+      // 5) Registra a carteira do vendor no evento
+      console.log('📝 Registrando carteira do vendor no evento...');
+      const vendorAddress = vendorData?.vendorId || "GDUKMGUGDZQK6YHYA5Z6AY2G4XDSZPSZ3SW5UN3ARVMO6QSRDWP5YLEX";
+      const registerVendorArgs = [1, vendorAddress]; // eventId, wallet
+      
+      const registerVendorRes = await invokeWithPasskeyWallet({
+        credentialIdBase64Url: credentialId,
+        contractId: contractId,
+        method: REGISTER_METHOD,
+        args: registerVendorArgs,
+      });
+
+      if (registerVendorRes.status === "SIMULATION_FAILED") {
+        const errorMsg = parseContractError(registerVendorRes.diag?.error, "registro da carteira do vendor");
+        console.error("❌ Falha no registro da carteira do vendor:", errorMsg);
+        
+        // Se o erro for que a carteira já está registrada, podemos continuar
+        if (registerVendorRes.diag?.error?.toString().includes('WalletAlreadyRegistered')) {
+          console.log('✅ Carteira do vendor já estava registrada, continuando...');
+        } else {
+          console.log('⚠️ Vendor não pôde ser registrado, mas continuando...');
+        }
+      } else {
+        console.log('✅ Carteira do vendor registrada com sucesso');
+      }
+
+      // 6) Args p/ contrato de pagamento do evento
       const value = parseFloat(amount);
       if (!value || value <= 0) throw new Error("Valor inválido.");
-      const args = mapArgsForContract(value, vendorData?.vendorId);
+      const args = await mapArgsForEventPayment(value, credentialId, vendorData?.vendorId);
 
-      // 3) Invoca contrato com a wallet derivada do passkey
+      // 7) Invoca contrato de pagamento do evento
+      console.log('💰 Executando pagamento do evento...');
       const res = await invokeWithPasskeyWallet({
         credentialIdBase64Url: credentialId,
-        contractId: CONTRACT_ID,
+        contractId: contractId,
         method: METHOD_NAME,
-        //args,
+        args,
       });
 
       // Falha na simulação
       if (res.status === "SIMULATION_FAILED") {
-        console.error("Simulação falhou:", res.diag);
-        throw new Error("Transação falhou na simulação (veja o console).");
+        const errorMsg = parseContractError(res.diag?.error, "pagamento do evento");
+        console.error("❌ Simulação do pagamento falhou:", errorMsg);
+        throw new Error(errorMsg);
       }
 
       // OK imediato: PENDING (enviada) ou DUPLICATE (já enviada)

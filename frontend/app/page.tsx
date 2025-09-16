@@ -1,6 +1,10 @@
+'use client'
+
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Navbar } from "../components/layout/Navbar";
+import { useAuth } from "./contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { 
   Wallet, 
   CreditCard, 
@@ -26,6 +30,27 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  const handleGetStarted = () => {
+    if (user?.isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      // O botão "Começar Agora" na navbar já lida com o login
+      console.log('Usuário não autenticado - login será tratado pela navbar');
+    }
+  };
+
+  const handleViewDemo = () => {
+    if (user?.isAuthenticated) {
+      router.push('/events');
+    } else {
+      // Para usuários não autenticados, mostrar uma demo ou explicar o sistema
+      console.log('Mostrar demo para usuário não autenticado');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-premium">
       <Navbar />
@@ -55,13 +80,22 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-              <Button size="lg" className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600">
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600"
+                onClick={handleGetStarted}
+              >
                 <Wallet className="w-6 h-6 mr-3" />
-                Começar Agora
+                {user?.isAuthenticated ? 'Ir para Dashboard' : 'Começar Agora'}
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white/20 hover:bg-white/10">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="text-lg px-8 py-4 border-white/20 hover:bg-white/10"
+                onClick={handleViewDemo}
+              >
                 <Play className="w-6 h-6 mr-3" />
-                Ver Demo
+                {user?.isAuthenticated ? 'Explorar Eventos' : 'Ver Demo'}
               </Button>
             </div>
           </div>
@@ -315,19 +349,34 @@ export default function Home() {
         <div className="bg-gradient-to-r from-primary-500/10 via-secondary-500/10 to-accent-500/10 border-y border-white/10 py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Pronto para revolucionar seus eventos?
+              {user?.isAuthenticated 
+                ? 'Bem-vindo ao EventCoin!' 
+                : 'Pronto para revolucionar seus eventos?'
+              }
             </h2>
             <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              Conecte sua carteira Stellar e comece a usar o sistema mais avançado de economia de eventos
+              {user?.isAuthenticated 
+                ? 'Explore todas as funcionalidades e comece a criar eventos incríveis com blockchain'
+                : 'Conecte sua carteira Stellar e comece a usar o sistema mais avançado de economia de eventos'
+              }
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Button size="lg" className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600">
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600"
+                onClick={handleGetStarted}
+              >
                 <Wallet className="w-6 h-6 mr-3" />
-                Começar Agora
+                {user?.isAuthenticated ? 'Ir para Dashboard' : 'Começar Agora'}
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white/20 hover:bg-white/10">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="text-lg px-8 py-4 border-white/20 hover:bg-white/10"
+                onClick={() => router.push('/about')}
+              >
                 <ExternalLink className="w-6 h-6 mr-3" />
-                Documentação
+                {user?.isAuthenticated ? 'Configurações' : 'Documentação'}
               </Button>
             </div>
           </div>
