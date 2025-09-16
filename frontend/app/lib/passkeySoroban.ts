@@ -64,34 +64,79 @@ export async function ensurePasskeyWithPrf(): Promise<string> {
     throw new Error("WebAuthn not supported on this device/browser.");
   }
 
-  const cred = (await navigator.credentials.create({
-    publicKey: {
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
-      rp: { name: "TicketCard Passkey", id: window.location.hostname },
-      user: {
-        id: crypto.getRandomValues(new Uint8Array(16)),
-        name: "ticketcard-user",
-        displayName: "TicketCard User",
+  try {
+    console.log('🔐 Starting passkey registration...');
+    
+    const cred = (await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: "TicketCard Passkey", id: window.location.hostname },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(16)),
+          name: "ticketcard-user",
+          displayName: "TicketCard User",
+        },
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 }, // ES256
+          { type: "public-key", alg: -257 }, // RS256 (fallback)
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+        },
+        attestation: "none",
+        timeout: 60_000,
+        // Tipagem DOM ainda não inclui 'enable'; usar ts-expect-error:
+        // @ts-expect-error - PRF 'enable' ainda não tipado
+        extensions: { prf: { enable: true } },
       },
-      pubKeyCredParams: [
-        { type: "public-key", alg: -7 }, // ES256
-        { type: "public-key", alg: -257 }, // RS256 (fallback)
-      ],
-      authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        userVerification: "required",
-      },
-      attestation: "none",
-      timeout: 60_000,
-      // Tipagem DOM ainda não inclui 'enable'; usar ts-expect-error:
-      // @ts-expect-error - PRF 'enable' ainda não tipado
-      extensions: { prf: { enable: true } },
-    },
-  })) as PublicKeyCredential;
+    })) as PublicKeyCredential;
 
-  const credentialId = cred.id; // base64url
-  localStorage.setItem(CREDENTIAL_ID_KEY, credentialId);
-  return credentialId;
+    const credentialId = cred.id; // base64url
+    localStorage.setItem(CREDENTIAL_ID_KEY, credentialId);
+    console.log('✅ Passkey registered successfully:', credentialId);
+    return credentialId;
+    
+  } catch (error: any) {
+    console.error('❌ Passkey registration error:', error);
+    
+    // Handle specific WebAuthn errors
+    if (error.name === 'NotAllowedError') {
+      throw new Error(
+        'Passkey registration was cancelled or not allowed. ' +
+        'Please make sure to:\n' +
+        '1. Allow the browser to access your authenticator\n' +
+        '2. Complete the registration within the timeout period\n' +
+        '3. Use a supported authenticator (Touch ID, Face ID, Windows Hello, etc.)\n' +
+        '4. Ensure you\'re on a secure connection (HTTPS)'
+      );
+    } else if (error.name === 'NotSupportedError') {
+      throw new Error(
+        'Passkey is not supported on this device. ' +
+        'Please use a device with biometric authentication or security key support.'
+      );
+    } else if (error.name === 'SecurityError') {
+      throw new Error(
+        'Security error during passkey registration. ' +
+        'Please ensure you\'re on a secure connection (HTTPS) and try again.'
+      );
+    } else if (error.name === 'TimeoutError') {
+      throw new Error(
+        'Passkey registration timed out. ' +
+        'Please try again and complete the registration quickly.'
+      );
+    } else if (error.name === 'AbortError') {
+      throw new Error(
+        'Passkey registration was cancelled by the user. ' +
+        'Please try again if you want to register a passkey.'
+      );
+    } else {
+      throw new Error(
+        `Passkey registration failed: ${error.message || 'Unknown error'}. ` +
+        'Please try again or contact support if the problem persists.'
+      );
+    }
+  }
 }
 
 export function getStoredCredentialId(): string | null {
@@ -103,29 +148,76 @@ export async function deriveKeyFromPasskey(credentialIdBase64Url: string) {
   if (!("PublicKeyCredential" in window)) {
     throw new Error("WebAuthn not supported.");
   }
-  const credId = b64ToU8(base64urlToBase64(credentialIdBase64Url));
+  
+  try {
+    console.log('🔑 Deriving key from passkey...');
+    
+    const credId = b64ToU8(base64urlToBase64(credentialIdBase64Url));
 
-  // INFO fixo (não depende do hostname)
-  const info = new TextEncoder().encode(INFO_CONTEXT);
+    // INFO fixo (não depende do hostname)
+    const info = new TextEncoder().encode(INFO_CONTEXT);
 
-  const assertion = (await navigator.credentials.get({
-    publicKey: {
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
-      allowCredentials: [{ type: "public-key", id: credId }],
-      userVerification: "required",
-      timeout: 60_000,
-      extensions: { prf: { eval: { first: info } } },
-    },
-  })) as PublicKeyCredential;
+    const assertion = (await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ type: "public-key", id: credId }],
+        userVerification: "required",
+        timeout: 60_000,
+        extensions: { prf: { eval: { first: info } } },
+      },
+    })) as PublicKeyCredential;
 
-  const exts: any = (assertion as any).getClientExtensionResults?.();
-  const prfOut: ArrayBuffer | undefined = exts?.prf?.results?.first;
-  if (!prfOut) {
-    throw new Error(
-      "PRF not supported/enabled for this credential. Register passkey with PRF."
-    );
+    const exts: any = (assertion as any).getClientExtensionResults?.();
+    const prfOut: ArrayBuffer | undefined = exts?.prf?.results?.first;
+    if (!prfOut) {
+      throw new Error(
+        "PRF not supported/enabled for this credential. Register passkey with PRF."
+      );
+    }
+    
+    console.log('✅ Key derived successfully from passkey');
+    return new Uint8Array(prfOut); // 32 bytes
+    
+  } catch (error: any) {
+    console.error('❌ Passkey authentication error:', error);
+    
+    // Handle specific WebAuthn errors
+    if (error.name === 'NotAllowedError') {
+      throw new Error(
+        'Passkey authentication was cancelled or not allowed. ' +
+        'Please make sure to:\n' +
+        '1. Allow the browser to access your authenticator\n' +
+        '2. Complete the authentication within the timeout period\n' +
+        '3. Use the same authenticator you registered with\n' +
+        '4. Ensure you\'re on a secure connection (HTTPS)'
+      );
+    } else if (error.name === 'NotSupportedError') {
+      throw new Error(
+        'Passkey authentication is not supported on this device. ' +
+        'Please use a device with biometric authentication or security key support.'
+      );
+    } else if (error.name === 'SecurityError') {
+      throw new Error(
+        'Security error during passkey authentication. ' +
+        'Please ensure you\'re on a secure connection (HTTPS) and try again.'
+      );
+    } else if (error.name === 'TimeoutError') {
+      throw new Error(
+        'Passkey authentication timed out. ' +
+        'Please try again and complete the authentication quickly.'
+      );
+    } else if (error.name === 'AbortError') {
+      throw new Error(
+        'Passkey authentication was cancelled by the user. ' +
+        'Please try again if you want to authenticate.'
+      );
+    } else {
+      throw new Error(
+        `Passkey authentication failed: ${error.message || 'Unknown error'}. ` +
+        'Please try again or contact support if the problem persists.'
+      );
+    }
   }
-  return new Uint8Array(prfOut); // 32 bytes
 }
 
 /** ========== 3) Generate Stellar Keypair from seed (32 bytes) ========== */

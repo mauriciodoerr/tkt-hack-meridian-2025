@@ -123,11 +123,41 @@ export default function CreateEventPage() {
 
   const handleSubmit = async () => {
     try {
-      // Aqui você implementaria a lógica de criação do evento
-      console.log('Criando evento:', formData)
-      router.push('/events')
+      console.log('🎉 Criando evento:', formData);
+      
+      // Import the API client
+      const { apiClientInstance } = await import('../../utils/api-client-factory');
+      
+      // Create event using the contract bindings
+      const response = await apiClientInstance.createEvent({
+        title: formData.title,
+        description: formData.description,
+        date: formData.startDate,
+        time: formData.startTime,
+        endDate: formData.endDate,
+        endTime: formData.endTime,
+        location: formData.location,
+        locationType: formData.locationType,
+        virtualLink: formData.virtualLink,
+        visibility: formData.visibility,
+        isFree: formData.isFree,
+        price: formData.price,
+        currency: formData.currency,
+        capacity: formData.capacity,
+        requiresApproval: formData.requiresApproval,
+        ticketBatches: formData.ticketBatches,
+      });
+
+      if (response.success) {
+        console.log('✅ Evento criado com sucesso:', response.data);
+        router.push('/events');
+      } else {
+        console.error('❌ Erro ao criar evento:', response.error);
+        alert(`Erro ao criar evento: ${response.error}`);
+      }
     } catch (error) {
-      console.error('Erro ao criar evento:', error)
+      console.error('❌ Erro ao criar evento:', error);
+      alert('Erro ao criar evento. Tente novamente.');
     }
   }
 

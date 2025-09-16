@@ -215,11 +215,17 @@ class StellarAPIClient {
     filters?: EventFilters
   ): Promise<StellarApiResponse<PaginatedStellarResponse<Event>>> {
     try {
+      console.log('🔍 Getting events from contract...', { page, limit, filters });
+      
       // Call contract method to list events
-      const tx = await this.contractClient.list_events({ limit: limit * 2 }); // Get more to filter
+      const tx = await this.contractClient.list_events({ 
+        limit: Math.min(limit * 3, 50) // Get more to filter, max 50 as per contract
+      });
+      
       const result = await tx.simulate();
 
       if (!result.result) {
+        console.log('❌ No events found in contract result');
         return {
           success: false,
           data: {
@@ -230,10 +236,64 @@ class StellarAPIClient {
         };
       }
 
-      let events = (result.result as unknown as any[]).map(
-        (contractEvent: any) =>
-          this.transformContractEventToEvent(contractEvent)
+      console.log('✅ Contract returned events:', result.result);
+      console.log('🔍 Result type:', typeof result.result);
+      console.log('🔍 Result constructor:', result.result?.constructor?.name);
+
+      // Handle different result types from the contract
+      let contractEvents: any[] = [];
+      
+      // The result.result is a Result<Event[], ErrorMessage> type
+      // We need to extract the actual data from the Result wrapper
+      const actualResult = result.result as any;
+      
+      console.log('🔍 Actual result structure:', actualResult);
+      console.log('🔍 Result keys:', Object.keys(actualResult || {}));
+      
+      if (Array.isArray(actualResult)) {
+        contractEvents = actualResult;
+        console.log('✅ Result is direct array with', contractEvents.length, 'events');
+      } else if (actualResult && typeof actualResult === 'object') {
+        // Check if it's a Soroban Vec or similar structure
+        if (typeof actualResult.toArray === 'function') {
+          contractEvents = actualResult.toArray();
+          console.log('✅ Result has toArray method');
+        } else if (actualResult.length !== undefined) {
+          // Convert array-like object to array
+          contractEvents = Array.from(actualResult);
+          console.log('✅ Result is array-like');
+        } else if (actualResult.ok !== undefined) {
+          // Handle Result<T, E> type - extract the ok value
+          contractEvents = actualResult.ok || [];
+          console.log('✅ Result has ok property:', actualResult.ok);
+        } else if (actualResult.value !== undefined) {
+          // Alternative Result structure
+          contractEvents = Array.isArray(actualResult.value) ? actualResult.value : [actualResult.value];
+          console.log('✅ Result has value property:', actualResult.value);
+        } else if (actualResult.data !== undefined) {
+          // Another possible Result structure
+          contractEvents = Array.isArray(actualResult.data) ? actualResult.data : [actualResult.data];
+          console.log('✅ Result has data property:', actualResult.data);
+        } else {
+          // Single event object
+          contractEvents = [actualResult];
+          console.log('✅ Treating as single event object');
+        }
+      } else {
+        console.log('❌ Unexpected result format:', actualResult);
+        contractEvents = [];
+      }
+
+      console.log('📋 Contract events array:', contractEvents);
+
+      let events = contractEvents.map(
+        (contractEvent: any) => {
+          console.log('🔄 Transforming contract event:', contractEvent);
+          return this.transformContractEventToEvent(contractEvent);
+        }
       );
+
+      console.log('📋 Transformed events:', events);
 
       // Apply filters
       if (filters) {
@@ -267,6 +327,8 @@ class StellarAPIClient {
       const endIndex = startIndex + limit;
       const paginatedEvents = events.slice(startIndex, endIndex);
 
+      console.log('📄 Paginated events:', paginatedEvents);
+
       return {
         success: true,
         data: {
@@ -281,6 +343,7 @@ class StellarAPIClient {
         message: "Success",
       };
     } catch (error) {
+      console.error('❌ Error getting events:', error);
       return {
         success: false,
         data: {
@@ -322,29 +385,129 @@ class StellarAPIClient {
   }
 
   async createEvent(
-    eventData: CreateEventForm
+    createEventData: CreateEventForm
   ): Promise<StellarApiResponse<Event>> {
     try {
-      // This would need to be called with the organizer's account address
-      const tx = await this.contractClient.create_event({
-        organizer: "ORGANIZER_ADDRESS", // This should come from the authenticated user
-        name: eventData.title,
-        fee_rate: undefined, // Use default fee rate
-      });
-
-      const result = await tx.simulate();
-
-      if (!result.result) {
+      console.log('🎉 Creating event with data:', createEventData);
+      
+      // Import the passkey utilities
+      const { ensurePasskeyWithPrf, invokeWithPasskeyWallet } = await import('../lib/passkeySoroban');
+      const { getContractAddress } = await import('./api-config');
+      
+      // Validate required fields
+      if (!createEventData.title || createEventData.title.trim() === '') {
         return {
           success: false,
           data: null as any,
-          error: "Failed to create event",
+          error: "Event title is required.",
         };
       }
 
-      // Get the created event
-      return this.getEventById(result.result.toString());
+      console.log('📝 Event title:', createEventData.title);
+
+      // 1) Ensure passkey with PRF (doesn't recreate if already exists)
+      const credentialId = await ensurePasskeyWithPrf();
+
+      // 2) Get wallet address
+      const walletAddress = localStorage.getItem('passkeyWalletPub');
+      if (!walletAddress) {
+        return {
+          success: false,
+          data: null as any,
+          error: "User not authenticated. Please login with passkey.",
+        };
+      }
+
+      console.log('👤 Organizer address:', walletAddress);
+
+      // 3) Get contract ID
+      const CONTRACT_ADDRESS = getContractAddress();
+
+      // 4) Args for create_event_with_allowance contract - only name
+      const args = [createEventData.title.trim()]; // only name
+
+      console.log('📋 Create event arguments:', args);
+
+      // 5) Invoke create_event_with_allowance contract
+      console.log('🎉 Executing create_event_with_allowance...');
+      const res = await invokeWithPasskeyWallet({
+        credentialIdBase64Url: credentialId,
+        contractId: CONTRACT_ADDRESS,
+        method: "create_event_with_allowance",
+        args,
+      });
+
+      console.log('🔍 Contract response:', res);
+
+      // Simulation failed
+      if (res.status === "SIMULATION_FAILED") {
+        const errorMsg = this.parseContractError(res.diag?.error, "event creation");
+        console.error("❌ Event creation simulation failed:", errorMsg);
+        return {
+          success: false,
+          data: null as any,
+          error: errorMsg,
+        };
+      }
+
+      // Send failures
+      if (res.status === "ERROR" || res.status === "TRY_AGAIN_LATER") {
+        console.error("Send failed:", res);
+        return {
+          success: false,
+          data: null as any,
+          error: "Transaction not accepted by RPC (try again).",
+        };
+      }
+
+      // Check if we have a successful result
+      const isOkNow = res.status === "PENDING" || res.status === "DUPLICATE" || res.status === "SUCCESS";
+      
+      if (!isOkNow) {
+        console.warn("Unexpected status:", res.status, res);
+        return {
+          success: false,
+          data: null as any,
+          error: `Unexpected transaction status: ${res.status}`,
+        };
+      }
+
+      console.log('✅ Event creation transaction successful:', res);
+
+      // For now, create a basic event object since we can't easily parse the result
+      // In a real implementation, you might want to call getEventById with the returned ID
+      const createdEvent: Event = {
+        id: Date.now().toString(), // Temporary ID
+        title: createEventData.title,
+        description: `Event created by ${walletAddress}. Fee rate: 5.00%`,
+        date: new Date().toISOString().split('T')[0],
+        time: "19:00",
+        location: "TBD",
+        attendees: 0,
+        maxAttendees: 100,
+        price: 0,
+        status: "active" as const,
+        rating: 0,
+        image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop",
+        organizer: walletAddress,
+        category: "General",
+        requiresApproval: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        feeRate: 500,
+        totalVolume: 0,
+        totalVolumeStroops: "0",
+      };
+
+      console.log('✅ Event created successfully:', createdEvent);
+
+      return {
+        success: true,
+        data: createdEvent,
+        message: "Event created successfully",
+      };
     } catch (error) {
+      console.error('❌ Error creating event:', error);
       return {
         success: false,
         data: null as any,
@@ -352,6 +515,45 @@ class StellarAPIClient {
           error instanceof Error ? error.message : "Failed to create event",
       };
     }
+  }
+
+  private parseContractError(error: any, operation: string): string {
+    if (!error) return `Unknown error during ${operation}`;
+    
+    const errorStr = error.toString();
+    console.log(`🔍 Analyzing contract error for ${operation}:`, errorStr);
+    
+    // Map common Stellar/Soroban errors
+    if (errorStr.includes('WasmVm, InvalidAction')) {
+      return `Invalid action in contract during ${operation}. Check if the event exists and parameters are correct.`;
+    }
+    
+    if (errorStr.includes('WasmVm, UnexpectedSize')) {
+      return `Unexpected data size during ${operation}. Check the arguments passed.`;
+    }
+    
+    if (errorStr.includes('WasmVm, UnreachableCodeReached')) {
+      return `Internal contract error during ${operation}. The contract may be in an invalid state.`;
+    }
+    
+    if (errorStr.includes('WalletAlreadyRegistered')) {
+      return `Wallet already registered for this event.`;
+    }
+    
+    if (errorStr.includes('EventNotFound')) {
+      return `Event not found. Check if the event was created.`;
+    }
+    
+    if (errorStr.includes('InsufficientBalance')) {
+      return `Insufficient balance to perform ${operation}.`;
+    }
+    
+    if (errorStr.includes('Unauthorized')) {
+      return `Unauthorized to perform ${operation}.`;
+    }
+    
+    // If can't map, return original error with context
+    return `Error during ${operation}: ${errorStr}`;
   }
 
   async updateEvent(
@@ -898,18 +1100,45 @@ class StellarAPIClient {
   }
 
   // Helper methods for data transformation
-  private transformContractEventToEvent(contractEvent: {
-    id: any;
-    name: string;
-    organizer: string;
-    created_at: any;
-    is_active: boolean;
-  }): Event {
+  private transformContractEventToEvent(contractEvent: any): Event {
+    console.log('🔄 Transforming contract event:', contractEvent);
+    console.log('🔍 Contract event properties:', Object.keys(contractEvent || {}));
+    
+    // Handle undefined or null contractEvent
+    if (!contractEvent) {
+      console.log('❌ Contract event is null or undefined');
+      throw new Error('Contract event is null or undefined');
+    }
+
+    // Safely extract properties with fallbacks based on actual contract structure
+    const id = contractEvent.id !== undefined ? contractEvent.id.toString() : 'unknown';
+    const name = contractEvent.name || contractEvent.title || 'Unnamed Event';
+    const organizer = contractEvent.organizer || 'Unknown Organizer';
+    const created_at = contractEvent.created_at || contractEvent.createdAt || Date.now() / 1000;
+    const is_active = contractEvent.is_active !== undefined ? contractEvent.is_active : 
+                     contractEvent.isActive !== undefined ? contractEvent.isActive : true;
+    const fee_rate = contractEvent.fee_rate || contractEvent.feeRate || 0;
+    const total_volume = contractEvent.total_volume || contractEvent.totalVolume || '0';
+
+    console.log('📋 Extracted properties:', { 
+      id, 
+      name, 
+      organizer, 
+      created_at, 
+      is_active, 
+      fee_rate, 
+      total_volume 
+    });
+
+    // Convert total_volume from stroops to XLM (1 XLM = 10,000,000 stroops)
+    const volumeInXLM = Number(total_volume) / 10000000;
+    const feeInXLM = (Number(total_volume) * fee_rate) / 100000000000; // fee_rate is in basis points
+
     return {
-      id: contractEvent.id.toString(),
-      title: contractEvent.name,
-      description: `Event created by ${contractEvent.organizer}`,
-      date: new Date(Number(contractEvent.created_at) * 1000)
+      id,
+      title: name,
+      description: `Event created by ${organizer}. Fee rate: ${(fee_rate / 100).toFixed(2)}%`,
+      date: new Date(Number(created_at) * 1000)
         .toISOString()
         .split("T")[0],
       time: "19:00",
@@ -917,19 +1146,19 @@ class StellarAPIClient {
       attendees: 0, // This would need to be tracked separately
       maxAttendees: 100, // Default value
       price: 0, // Default value
-      status: contractEvent.is_active ? "active" : "cancelled",
+      status: is_active ? "active" : "cancelled",
       rating: 0,
       image:
         "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop",
-      organizer: contractEvent.organizer,
+      organizer,
       category: "General",
       requiresApproval: false,
-      createdAt: new Date(
-        Number(contractEvent.created_at) * 1000
-      ).toISOString(),
-      updatedAt: new Date(
-        Number(contractEvent.created_at) * 1000
-      ).toISOString(),
+      createdAt: new Date(Number(created_at) * 1000).toISOString(),
+      updatedAt: new Date(Number(created_at) * 1000).toISOString(),
+      // Additional contract-specific fields
+      feeRate: fee_rate,
+      totalVolume: volumeInXLM,
+      totalVolumeStroops: total_volume,
     };
   }
 }
