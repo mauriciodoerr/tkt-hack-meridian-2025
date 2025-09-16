@@ -1,7 +1,5 @@
 'use client'
 
-import { LoginForm } from '../../../components/features/auth/LoginForm'
-
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-premium flex items-center justify-center p-4">
@@ -20,8 +18,6 @@ export default function LoginPage() {
             Entre na sua conta para continuar
           </p>
         </div>
-        
-        <LoginForm />
       </div>
     </div>
   )
