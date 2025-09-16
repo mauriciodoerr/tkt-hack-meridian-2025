@@ -9,7 +9,7 @@ import { EventSidePanel } from '../../components/features/events/EventSidePanel'
 import { Button, Input } from '../../components/ui'
 import { Navbar } from '../../components/layout/Navbar'
 import { Search, Filter, Plus, Calendar } from 'lucide-react'
-import { apiClient } from '../utils/api-client'
+import { apiClientInstance } from '../utils/api-client-factory'
 import { Event, EventFilters } from '../types'
 
 export default function EventsPage() {
@@ -43,7 +43,7 @@ export default function EventsPage() {
       setIsLoading(true)
       setError(null)
       
-      const response = await apiClient.getEvents(1, 20, activeFilters)
+      const response = await apiClientInstance.getEvents(1, 20, activeFilters)
       
       if (response.success) {
         setEvents(response.data.data)
@@ -65,7 +65,7 @@ export default function EventsPage() {
       setIsLoadingMore(true)
       
       const currentPage = Math.ceil(events.length / 20) + 1
-      const response = await apiClient.getEvents(currentPage, 20, activeFilters)
+      const response = await apiClientInstance.getEvents(currentPage, 20, activeFilters)
       
       if (response.success) {
         setEvents(prev => [...prev, ...response.data.data])
@@ -147,7 +147,7 @@ export default function EventsPage() {
 
   const handleJoinEvent = async (eventId: string) => {
     try {
-      const response = await apiClient.joinEvent(eventId)
+      const response = await apiClientInstance.joinEvent(eventId)
       
       if (response.success) {
         // Update the event in the list

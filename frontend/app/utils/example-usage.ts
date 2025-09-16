@@ -3,7 +3,7 @@
  * Examples of how to use the centralized mock system
  */
 
-import { apiClient } from './api-client'
+import { apiClientInstance } from './api-client-factory'
 import { mockAPI } from './mock-api'
 import { API_CONFIG } from './api-config'
 
@@ -14,31 +14,31 @@ import { API_CONFIG } from './api-config'
 export async function exampleApiClientUsage() {
   try {
     // Get events - automatically uses mock in development
-    const eventsResponse = await apiClient.getEvents(1, 10)
+    const eventsResponse = await apiClientInstance.getEvents(1, 10)
     if (eventsResponse.success) {
       console.log('Events:', eventsResponse.data)
     }
 
     // Get user profile
-    const profileResponse = await apiClient.getProfile()
+    const profileResponse = await apiClientInstance.getProfile()
     if (profileResponse.success) {
       console.log('Profile:', profileResponse.data)
     }
 
     // Get balance
-    const balanceResponse = await apiClient.getBalance()
+    const balanceResponse = await apiClientInstance.getBalance()
     if (balanceResponse.success) {
       console.log('Balance:', balanceResponse.data)
     }
 
     // Join an event
-    const joinResponse = await apiClient.joinEvent('event-1')
+    const joinResponse = await apiClientInstance.joinEvent('event-1')
     if (joinResponse.success) {
       console.log('Joined event:', joinResponse.data)
     }
 
     // Transfer TKT tokens
-    const transferResponse = await apiClient.transferP2P('user-2', 100)
+    const transferResponse = await apiClientInstance.transferP2P('user-2', 100)
     if (transferResponse.success) {
       console.log('Transfer successful:', transferResponse.data)
     }
@@ -85,7 +85,7 @@ export function useEvents() {
     async function fetchEvents() {
       try {
         setLoading(true)
-        const response = await apiClient.getEvents(1, 10)
+        const response = await apiClientInstance.getEvents(1, 10)
         
         if (response.success) {
           setEvents(response.data.data)
@@ -114,7 +114,7 @@ export function useUserProfile() {
     async function fetchProfile() {
       try {
         setLoading(true)
-        const response = await apiClient.getProfile()
+        const response = await apiClientInstance.getProfile()
         
         if (response.success) {
           setUser(response.data)
@@ -143,7 +143,7 @@ export function useNotifications() {
     async function fetchNotifications() {
       try {
         setLoading(true)
-        const response = await apiClient.getNotifications()
+        const response = await apiClientInstance.getNotifications()
         
         if (response.success) {
           setNotifications(response.data)
@@ -162,7 +162,7 @@ export function useNotifications() {
 
   const markAsRead = async (id: string) => {
     try {
-      const response = await apiClient.markNotificationAsRead(id)
+      const response = await apiClientInstance.markNotificationAsRead(id)
       if (response.success) {
         setNotifications(prev => 
           prev.map(notif => 
@@ -184,7 +184,7 @@ export function useNotifications() {
 
 export async function joinEvent(eventId: string) {
   try {
-    const response = await apiClient.joinEvent(eventId)
+    const response = await apiClientInstance.joinEvent(eventId)
     if (response.success) {
       console.log('Successfully joined event:', response.data)
       return { success: true, message: response.data.message }
@@ -198,7 +198,7 @@ export async function joinEvent(eventId: string) {
 
 export async function leaveEvent(eventId: string) {
   try {
-    const response = await apiClient.leaveEvent(eventId)
+    const response = await apiClientInstance.leaveEvent(eventId)
     if (response.success) {
       console.log('Successfully left event:', response.data)
       return { success: true, message: response.data.message }
@@ -212,7 +212,7 @@ export async function leaveEvent(eventId: string) {
 
 export async function registerForEvent(eventId: string, ticketBatchId: string) {
   try {
-    const response = await apiClient.registerForEvent(eventId, ticketBatchId)
+    const response = await apiClientInstance.registerForEvent(eventId, ticketBatchId)
     if (response.success) {
       console.log('Successfully registered for event:', response.data)
       return { success: true, message: response.data.message }
@@ -230,7 +230,7 @@ export async function registerForEvent(eventId: string, ticketBatchId: string) {
 
 export async function transferTKT(recipientId: string, amount: number) {
   try {
-    const response = await apiClient.transferP2P(recipientId, amount)
+    const response = await apiClientInstance.transferP2P(recipientId, amount)
     if (response.success) {
       console.log('Transfer successful:', response.data)
       return { success: true, transactionId: response.data.transactionId }
@@ -244,7 +244,7 @@ export async function transferTKT(recipientId: string, amount: number) {
 
 export async function buyTKT(amount: number) {
   try {
-    const response = await apiClient.buyTokens(amount)
+    const response = await apiClientInstance.buyTokens(amount)
     if (response.success) {
       console.log('Purchase successful:', response.data)
       return { success: true, transactionId: response.data.transactionId }
@@ -262,7 +262,7 @@ export async function buyTKT(amount: number) {
 
 export async function getDEXPools() {
   try {
-    const response = await apiClient.getPools()
+    const response = await apiClientInstance.getPools()
     if (response.success) {
       console.log('DEX Pools:', response.data)
       return { success: true, pools: response.data }
@@ -276,7 +276,7 @@ export async function getDEXPools() {
 
 export async function swapTokens(tokenA: string, tokenB: string, amount: number) {
   try {
-    const response = await apiClient.swap(tokenA, tokenB, amount)
+    const response = await apiClientInstance.swap(tokenA, tokenB, amount)
     if (response.success) {
       console.log('Swap successful:', response.data)
       return { 
@@ -335,7 +335,7 @@ export async function handleApiError<T>(apiCall: () => Promise<{ success: boolea
 }
 
 // Usage example:
-// const result = await handleApiError(() => apiClient.getEvents(1, 10))
+// const result = await handleApiError(() => apiClientInstance.getEvents(1, 10))
 // if (result.success) {
 //   console.log('Events:', result.data)
 // } else {

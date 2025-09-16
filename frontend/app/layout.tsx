@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "./contexts/AuthContext";
 
 export const metadata: Metadata = {
   title: "EventCoin - A Nova Economia de Eventos",
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark scrollbar-modern">
       <body className="font-sans antialiased scrollbar-modern" suppressHydrationWarning={true}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

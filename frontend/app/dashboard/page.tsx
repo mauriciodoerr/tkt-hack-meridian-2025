@@ -20,7 +20,7 @@ import {
   Download,
   Settings
 } from 'lucide-react'
-import { apiClient } from '../utils/api-client'
+import { apiClientInstance } from '../utils/api-client-factory'
 import { DashboardStats, User, Payment, Goal, ChartsData } from '../types'
 
 export default function DashboardPage() {
@@ -44,12 +44,12 @@ export default function DashboardPage() {
 
       // Load user profile and balance
       const [profileResponse, balanceResponse, statsResponse, transactionsResponse, goalsResponse, chartsResponse] = await Promise.all([
-        apiClient.getProfile(),
-        apiClient.getBalance(),
-        apiClient.getDashboardStats(),
-        apiClient.getTransactions(),
-        apiClient.getGoals(),
-        apiClient.getChartsData()
+        apiClientInstance.getProfile(),
+        apiClientInstance.getBalance(),
+        apiClientInstance.getDashboardStats(),
+        apiClientInstance.getTransactions(),
+        apiClientInstance.getGoals(),
+        apiClientInstance.getChartsData()
       ])
 
       if (profileResponse.success) {

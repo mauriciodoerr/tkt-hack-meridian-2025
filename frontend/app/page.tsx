@@ -1,6 +1,10 @@
+'use client'
+
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Navbar } from "../components/layout/Navbar";
+import { useAuth } from "./contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { 
   Wallet, 
   CreditCard, 
@@ -26,6 +30,27 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  const handleGetStarted = () => {
+    if (user?.isAuthenticated) {
+      router.push('/dashboard');
+    } else {
+      // The "Get Started" button in navbar already handles login
+      console.log('User not authenticated - login will be handled by navbar');
+    }
+  };
+
+  const handleViewDemo = () => {
+    if (user?.isAuthenticated) {
+      router.push('/events');
+    } else {
+      // For unauthenticated users, show a demo or explain the system
+      console.log('Show demo for unauthenticated user');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-premium">
       <Navbar />
@@ -45,23 +70,32 @@ export default function Home() {
               EventCoin
               <br />
               <span className="text-gradient-premium animate-gradient-x">
-                A Nova Economia de Eventos
+                The New Event Economy
               </span>
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-4xl mx-auto leading-relaxed">
-              Revolucione seus eventos com blockchain, transações gasless e tokens transferíveis. 
-              Experiência Web2 com tecnologia Web3.
+              Revolutionize your events with blockchain, gasless transactions and transferable tokens. 
+              Web2 experience with Web3 technology.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-              <Button size="lg" className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600">
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600"
+                onClick={handleGetStarted}
+              >
                 <Wallet className="w-6 h-6 mr-3" />
-                Começar Agora
+                {user?.isAuthenticated ? 'Go to Dashboard' : 'Get Started'}
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white/20 hover:bg-white/10">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="text-lg px-8 py-4 border-white/20 hover:bg-white/10"
+                onClick={handleViewDemo}
+              >
                 <Play className="w-6 h-6 mr-3" />
-                Ver Demo
+                {user?.isAuthenticated ? 'Explore Events' : 'View Demo'}
               </Button>
             </div>
           </div>
@@ -75,7 +109,7 @@ export default function Home() {
                 Powered by Stellar
               </h2>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                A infraestrutura blockchain mais confiável para pagamentos globais
+                The most reliable blockchain infrastructure for global payments
               </p>
             </div>
 
@@ -85,11 +119,11 @@ export default function Home() {
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
                     <Globe className="w-8 h-8 text-blue-400" />
                   </div>
-                  <CardTitle className="text-2xl text-white">Rede Global</CardTitle>
+                  <CardTitle className="text-2xl text-white">Global Network</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-lg text-gray-300">
-                    Stellar conecta bancos, sistemas de pagamento e pessoas em todo o mundo
+                    Stellar connects banks, payment systems and people worldwide
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -99,11 +133,11 @@ export default function Home() {
                   <div className="w-16 h-16 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
                     <Zap className="w-8 h-8 text-green-400" />
                   </div>
-                  <CardTitle className="text-2xl text-white">Transações Rápidas</CardTitle>
+                  <CardTitle className="text-2xl text-white">Fast Transactions</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-lg text-gray-300">
-                    Confirmações em segundos com taxas mínimas e transparência total
+                    Confirmations in seconds with minimal fees and total transparency
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -113,11 +147,11 @@ export default function Home() {
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
                     <Lock className="w-8 h-8 text-purple-400" />
                   </div>
-                  <CardTitle className="text-2xl text-white">Segurança Máxima</CardTitle>
+                  <CardTitle className="text-2xl text-white">Maximum Security</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-lg text-gray-300">
-                    Infraestrutura testada e auditada por instituições financeiras globais
+                    Infrastructure tested and audited by global financial institutions
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -315,19 +349,34 @@ export default function Home() {
         <div className="bg-gradient-to-r from-primary-500/10 via-secondary-500/10 to-accent-500/10 border-y border-white/10 py-20">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Pronto para revolucionar seus eventos?
+              {user?.isAuthenticated 
+                ? 'Bem-vindo ao EventCoin!' 
+                : 'Pronto para revolucionar seus eventos?'
+              }
             </h2>
             <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              Conecte sua carteira Stellar e comece a usar o sistema mais avançado de economia de eventos
+              {user?.isAuthenticated 
+                ? 'Explore todas as funcionalidades e comece a criar eventos incríveis com blockchain'
+                : 'Conecte sua carteira Stellar e comece a usar o sistema mais avançado de economia de eventos'
+              }
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Button size="lg" className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600">
+              <Button 
+                size="lg" 
+                className="text-lg px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600"
+                onClick={handleGetStarted}
+              >
                 <Wallet className="w-6 h-6 mr-3" />
-                Começar Agora
+                {user?.isAuthenticated ? 'Go to Dashboard' : 'Get Started'}
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white/20 hover:bg-white/10">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="text-lg px-8 py-4 border-white/20 hover:bg-white/10"
+                onClick={() => router.push('/about')}
+              >
                 <ExternalLink className="w-6 h-6 mr-3" />
-                Documentação
+                {user?.isAuthenticated ? 'Configurações' : 'Documentação'}
               </Button>
             </div>
           </div>

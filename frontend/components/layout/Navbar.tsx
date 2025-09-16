@@ -2,43 +2,50 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '../ui/Button'
 import { NotificationBell } from '../features/notifications/NotificationBell'
-import { Menu, X, Search } from 'lucide-react'
-import { apiClient } from '../../app/utils/api-client'
+import { Menu, X, Search, User, LogOut, Wallet } from 'lucide-react'
+import { apiClientInstance } from '../../app/utils/api-client-factory'
 import { Notification } from '../../app/types'
+import { useAuth } from '../../app/contexts/AuthContext'
 
 interface NavbarProps {
   onSearchClick?: () => void
 }
 
 export function Navbar({ onSearchClick }: NavbarProps) {
+  const router = useRouter()
+  const { user, isLoading: authLoading, login, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true)
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
 
-  // Load notifications
+  // Load notifications only if user is authenticated
   useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        setIsLoadingNotifications(true)
-        const response = await apiClient.getNotifications()
-        if (response.success) {
-          setNotifications(response.data)
+    if (user?.isAuthenticated) {
+      const loadNotifications = async () => {
+        try {
+          setIsLoadingNotifications(true)
+          const response = await apiClientInstance.getNotifications()
+          if (response.success) {
+            setNotifications(response.data)
+          }
+        } catch (error) {
+          console.error('Failed to load notifications:', error)
+        } finally {
+          setIsLoadingNotifications(false)
         }
-      } catch (error) {
-        console.error('Failed to load notifications:', error)
-      } finally {
-        setIsLoadingNotifications(false)
       }
-    }
 
-    loadNotifications()
-  }, [])
+      loadNotifications()
+    }
+  }, [user?.isAuthenticated])
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await apiClient.markNotificationAsRead(id)
+      await apiClientInstance.markNotificationAsRead(id)
       setNotifications(prev => 
         prev.map(notification => 
           notification.id === id 
@@ -53,7 +60,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await apiClient.markAllNotificationsAsRead()
+      await apiClientInstance.markAllNotificationsAsRead()
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       )
@@ -64,6 +71,37 @@ export function Navbar({ onSearchClick }: NavbarProps) {
 
   const handleDismiss = (id: string) => {
     setNotifications(prev => prev.filter(notification => notification.id !== id))
+  }
+
+  const handleLogin = async () => {
+    try {
+      setIsLoggingIn(true)
+      await login()
+      setIsMenuOpen(false)
+    } catch (error) {
+      console.error('Login error:', error)
+      // Here you can add an error toast
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+
+  const handleGetStarted = async () => {
+    try {
+      setIsLoggingIn(true)
+      await login()
+      setIsMenuOpen(false)
+    } catch (error) {
+      console.error('Registration error:', error)
+      // Here you can add an error toast
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+
+  const handleLogout = () => {
+    logout()
+    setIsMenuOpen(false)
   }
 
   return (
@@ -78,43 +116,77 @@ export function Navbar({ onSearchClick }: NavbarProps) {
             <span className="text-2xl font-bold text-white">EventCoin</span>
           </Link>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link href="/events" className="text-gray-300 hover:text-white transition-colors">
-              Eventos
-            </Link>
-            <Link href="/payments" className="text-gray-300 hover:text-white transition-colors">
-              Pagamentos
-            </Link>
-            <Link href="/dashboard" className="text-gray-300 hover:text-white transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
-              Configurações
-            </Link>
-          </div>
+          {/* Desktop Menu - Only show if authenticated */}
+          {user?.isAuthenticated && (
+            <div className="hidden md:flex items-center space-x-8">
+              <Link href="/events" className="text-gray-300 hover:text-white transition-colors">
+                Events
+              </Link>
+              <Link href="/payments" className="text-gray-300 hover:text-white transition-colors">
+                Payments
+              </Link>
+              <Link href="/dashboard" className="text-gray-300 hover:text-white transition-colors">
+                Dashboard
+              </Link>
+              <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
+                Settings
+              </Link>
+            </div>
+          )}
 
       {/* Desktop Actions */}
       <div className="hidden md:flex items-center space-x-4">
-        <button
-          onClick={onSearchClick}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
-          title="Buscar Eventos"
-        >
-          <Search className="w-5 h-5 text-white" />
-        </button>
-        <NotificationBell 
-          notifications={notifications}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          onDismiss={handleDismiss}
-        />
-        <Button variant="ghost" size="sm">
-          Entrar
-        </Button>
-        <Button variant="primary" size="sm">
-          Começar
-        </Button>
+        {user?.isAuthenticated ? (
+          <>
+            <button
+              onClick={onSearchClick}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+              title="Search Events"
+            >
+              <Search className="w-5 h-5 text-white" />
+            </button>
+            <NotificationBell 
+              notifications={notifications}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onDismiss={handleDismiss}
+            />
+            <div className="flex items-center space-x-2 px-3 py-2 bg-white/5 rounded-xl border border-white/10">
+              <Wallet className="w-4 h-4 text-primary-400" />
+              <span className="text-sm text-gray-300">
+                {user.publicKey.slice(0, 6)}...{user.publicKey.slice(-4)}
+              </span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center space-x-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleLogin}
+              disabled={isLoggingIn || authLoading}
+            >
+              {isLoggingIn ? 'Connecting...' : 'Login'}
+            </Button>
+            <Button 
+              variant="primary" 
+              size="sm"
+              onClick={handleGetStarted}
+              disabled={isLoggingIn || authLoading}
+            >
+              {isLoggingIn ? 'Connecting...' : 'Get Started'}
+            </Button>
+          </>
+        )}
       </div>
 
           {/* Mobile Menu Button */}
@@ -130,60 +202,94 @@ export function Navbar({ onSearchClick }: NavbarProps) {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-white/10">
             <div className="flex flex-col space-y-4">
-              <Link
-                href="/events"
-                className="text-gray-300 hover:text-white transition-colors px-4 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Eventos
-              </Link>
-              <Link
-                href="/payments"
-                className="text-gray-300 hover:text-white transition-colors px-4 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Pagamentos
-              </Link>
-              <Link
-                href="/dashboard"
-                className="text-gray-300 hover:text-white transition-colors px-4 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/about"
-                className="text-gray-300 hover:text-white transition-colors px-4 py-2"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Configurações
-              </Link>
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-gray-300">Buscar</span>
-            <button
-              onClick={onSearchClick}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
-            >
-              <Search className="w-5 h-5 text-white" />
-            </button>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-gray-300">Notificações</span>
-            <NotificationBell 
-          notifications={notifications}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          onDismiss={handleDismiss}
-        />
-          </div>
-              <div className="flex flex-col space-y-2 px-4">
-                <Button variant="ghost" size="sm" className="w-full">
-                  Entrar
-                </Button>
-                <Button variant="primary" size="sm" className="w-full">
-                  Começar
-                </Button>
-              </div>
+              {user?.isAuthenticated ? (
+                <>
+                  <Link
+                    href="/events"
+                    className="text-gray-300 hover:text-white transition-colors px-4 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Events
+                  </Link>
+                  <Link
+                    href="/payments"
+                    className="text-gray-300 hover:text-white transition-colors px-4 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Payments
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="text-gray-300 hover:text-white transition-colors px-4 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/about"
+                    className="text-gray-300 hover:text-white transition-colors px-4 py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <div className="flex items-center justify-between px-4 py-2">
+                    <span className="text-gray-300">Search</span>
+                    <button
+                      onClick={onSearchClick}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <Search className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-2">
+                    <span className="text-gray-300">Notifications</span>
+                    <NotificationBell 
+                      notifications={notifications}
+                      onMarkAsRead={handleMarkAsRead}
+                      onMarkAllAsRead={handleMarkAllAsRead}
+                      onDismiss={handleDismiss}
+                    />
+                  </div>
+                  <div className="px-4 py-2 border-t border-white/10">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Wallet className="w-4 h-4 text-primary-400" />
+                      <span className="text-sm text-gray-300">
+                        {user.publicKey.slice(0, 8)}...{user.publicKey.slice(-6)}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full flex items-center justify-center space-x-2"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col space-y-2 px-4">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={handleLogin}
+                    disabled={isLoggingIn || authLoading}
+                  >
+                    {isLoggingIn ? 'Connecting...' : 'Login'}
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={handleGetStarted}
+                    disabled={isLoggingIn || authLoading}
+                  >
+                    {isLoggingIn ? 'Connecting...' : 'Get Started'}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}

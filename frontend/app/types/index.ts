@@ -96,6 +96,131 @@ export interface SwapQuote {
   route: string[]
 }
 
+// Stellar Network Types
+export interface StellarAccount {
+  id: string
+  account_id: string
+  sequence: string
+  balances: StellarBalance[]
+  data_attr?: Record<string, string>
+  flags: {
+    auth_required: boolean
+    auth_revocable: boolean
+    auth_immutable: boolean
+  }
+  signers: StellarSigner[]
+  thresholds: {
+    low_threshold: number
+    med_threshold: number
+    high_threshold: number
+  }
+}
+
+export interface StellarBalance {
+  balance: string
+  limit?: string
+  asset_type: string
+  asset_code?: string
+  asset_issuer?: string
+  buying_liabilities?: string
+  selling_liabilities?: string
+  last_modified_ledger?: number
+  is_authorized?: boolean
+  is_authorized_to_maintain_liabilities?: boolean
+  is_clawback_enabled?: boolean
+}
+
+export interface StellarSigner {
+  weight: number
+  key: string
+  type: string
+}
+
+export interface StellarTransaction {
+  id: string
+  paging_token: string
+  successful: boolean
+  hash: string
+  ledger: number
+  created_at: string
+  source_account: string
+  source_account_sequence: string
+  fee_account?: string
+  fee_charged: string
+  max_fee: string
+  operation_count: number
+  envelope_xdr: string
+  result_xdr: string
+  result_meta_xdr: string
+  fee_meta_xdr: string
+  memo_type: string
+  memo?: string
+  signatures: string[]
+  valid_after?: string
+  valid_before?: string
+}
+
+export interface StellarOperation {
+  id: string
+  paging_token: string
+  transaction_successful: boolean
+  source_account: string
+  type: string
+  type_i: number
+  created_at: string
+  transaction_hash: string
+  asset_type?: string
+  asset_code?: string
+  asset_issuer?: string
+  from?: string
+  to?: string
+  amount?: string
+  starting_balance?: string
+  funder?: string
+  account?: string
+  trustor?: string
+  trustee?: string
+  limit?: string
+  asset?: {
+    asset_type: string
+    asset_code?: string
+    asset_issuer?: string
+  }
+  authorize?: boolean
+  authorize_to_maintain_liabilities?: boolean
+  clawback_enabled?: boolean
+}
+
+// Horizon API Response Types
+export interface HorizonResponse<T> {
+  _links: {
+    self: { href: string }
+    next?: { href: string }
+    prev?: { href: string }
+  }
+  _embedded: {
+    records: T[]
+  }
+}
+
+// API Response Types
+export interface StellarApiResponse<T> {
+  success: boolean
+  data: T
+  message?: string
+  error?: string
+}
+
+export interface PaginatedStellarResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean

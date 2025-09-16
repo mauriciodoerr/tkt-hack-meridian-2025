@@ -12,12 +12,13 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^14.1.1",
+    "@stellar/stellar-sdk": "14.1.1",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.10",
     "@types/qrcode": "^1.5.5",
     "autoprefixer": "^10.4.21",
+    "bindings": "../contracts/bindings",
     "buffer": "^6.0.3",
     "clsx": "^2.0.0",
     "lucide-react": "^0.544.0",
@@ -26,7 +27,6 @@
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "stellar-sdk": "^13.3.0",
     "tailwindcss": "^3.4.0"
   },
   "devDependencies": {

@@ -37,7 +37,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          facingMode: 'environment', // Usar câmera traseira no mobile
+          facingMode: 'environment', // Use rear camera on mobile
           width: { ideal: 1280 },
           height: { ideal: 720 }
         }
@@ -50,14 +50,14 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
         videoRef.current.play()
       }
 
-      // Simular detecção de QR Code (em produção, usar uma biblioteca como jsQR)
+      // Simulate QR Code detection (in production, use a library like jsQR)
       setTimeout(() => {
         simulateQRDetection()
       }, 2000)
 
     } catch (err) {
-      console.error('Erro ao acessar câmera:', err)
-      setError('Não foi possível acessar a câmera. Verifique as permissões.')
+      console.error('Error accessing camera:', err)
+      setError('Could not access camera. Check permissions.')
       setIsScanning(false)
     }
   }
@@ -71,12 +71,12 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
   }
 
   const simulateQRDetection = () => {
-    // Simular dados de um QR Code de vendedor
+    // Simulate vendor QR Code data
     const mockQRData = JSON.stringify({
       type: 'vendor_payment',
-      vendorId: 'vendor_123',
+      vendorId: 'GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77',
       vendorName: 'Bar do João',
-      eventId: 'event_456',
+      eventId: 1,
       eventName: 'Festival de Música',
       publicKey: 'GABC123...'
     })
@@ -103,10 +103,10 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-2">
-            Escanear QR Code
+            Scan QR Code
           </h2>
           <p className="text-gray-400">
-            Posicione o QR Code do vendedor dentro da área de leitura
+            Position the vendor's QR Code within the reading area
           </p>
         </div>
 
@@ -126,7 +126,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
               </div>
             )}
             
-            {/* Overlay com guias de escaneamento */}
+            {/* Overlay with scanning guides */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <div className="w-48 h-48 border-2 border-primary-400 rounded-lg">
@@ -144,7 +144,7 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
             {isScanning && (
               <div className="flex items-center justify-center space-x-2 text-primary-400">
                 <Camera className="w-5 h-5 animate-pulse" />
-                <span>Escaneando...</span>
+                <span>Scanning...</span>
               </div>
             )}
             
@@ -163,22 +163,22 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
             <CardHeader>
               <CardTitle className="text-white flex items-center space-x-2">
                 <CheckCircle className="w-5 h-5 text-green-400" />
-                <span>QR Code Detectado!</span>
+                <span>QR Code Detected!</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-sm text-gray-400">Vendedor:</p>
+                  <p className="text-sm text-gray-400">Vendor:</p>
                   <p className="text-white font-medium">Bar do João</p>
                 </div>
                 <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-sm text-gray-400">Evento:</p>
-                  <p className="text-white font-medium">Festival de Música</p>
+                  <p className="text-sm text-gray-400">Event:</p>
+                  <p className="text-white font-medium">Music Festival</p>
                 </div>
                 <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-sm text-gray-400">ID do Vendedor:</p>
-                  <p className="text-white font-mono text-sm">vendor_123</p>
+                  <p className="text-sm text-gray-400">Vendor ID:</p>
+                  <p className="text-white font-mono text-sm">GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77</p>
                 </div>
               </div>
             </CardContent>
@@ -190,21 +190,21 @@ export function QRScanner({ isOpen, onClose, onScan, onError }: QRScannerProps) 
           {error ? (
             <Button onClick={handleRetry} className="flex-1">
               <Camera className="w-4 h-4 mr-2" />
-              Tentar Novamente
+              Try Again
             </Button>
           ) : scannedData ? (
             <>
               <Button variant="outline" onClick={handleRetry} className="flex-1">
-                Escanear Outro
+                Scan Another
               </Button>
               <Button onClick={handleConfirmPayment} className="flex-1">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Continuar Pagamento
+                Continue Payment
               </Button>
             </>
           ) : (
             <Button variant="outline" onClick={onClose} className="flex-1">
-              Cancelar
+              Cancel
             </Button>
           )}
         </div>
