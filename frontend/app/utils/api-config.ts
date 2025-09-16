@@ -1,6 +1,6 @@
 /**
  * EventCoin API Configuration
- * Centralized configuration for all API endpoints
+ * Centralized configuration for all API endpoints and Stellar integration
  * Following the pattern from DeFi Risk Guardian
  */
 
@@ -10,6 +10,29 @@ export const API_CONFIG = {
   
   // API Version
   VERSION: 'v1',
+  
+  // Stellar Network Configuration
+  STELLAR: {
+    NETWORK: {
+      PASSphrase: process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
+      HORIZON_URL: process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+      RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org',
+    },
+    
+    // Contract Configuration
+    CONTRACT: {
+      ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '',
+      TOKEN_ADDRESS: process.env.NEXT_PUBLIC_TOKEN_ADDRESS || '',
+    },
+    
+    // Horizon API Configuration
+    HORIZON: {
+      BASE_URL: process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org',
+      TIMEOUT: 10000,
+      RETRY_ATTEMPTS: 3,
+      RETRY_DELAY: 1000,
+    },
+  },
   
   // Endpoints
   ENDPOINTS: {
@@ -129,4 +152,63 @@ export const getEndpoint = (key: string, params?: Record<string, string | number
   }
   
   return buildApiUrl(endpoint, params)
+}
+
+/**
+ * Stellar Helper Functions
+ */
+
+/**
+ * Helper function to build Horizon API URL
+ */
+export const buildHorizonUrl = (endpoint: string): string => {
+  return `${API_CONFIG.STELLAR.HORIZON.BASE_URL}${endpoint}`
+}
+
+/**
+ * Helper function to build RPC URL
+ */
+export const buildRpcUrl = (): string => {
+  return API_CONFIG.STELLAR.NETWORK.RPC_URL
+}
+
+/**
+ * Helper function to get contract address
+ */
+export const getContractAddress = (): string => {
+  if (!API_CONFIG.STELLAR.CONTRACT.ADDRESS) {
+    throw new Error('Contract address not configured')
+  }
+  return API_CONFIG.STELLAR.CONTRACT.ADDRESS
+}
+
+/**
+ * Helper function to get token address
+ */
+export const getTokenAddress = (): string => {
+  if (!API_CONFIG.STELLAR.CONTRACT.TOKEN_ADDRESS) {
+    throw new Error('Token address not configured')
+  }
+  return API_CONFIG.STELLAR.CONTRACT.TOKEN_ADDRESS
+}
+
+/**
+ * Helper function to get network passphrase
+ */
+export const getNetworkPassphrase = (): string => {
+  return API_CONFIG.STELLAR.NETWORK.PASSphrase
+}
+
+/**
+ * Helper function to check if running on testnet
+ */
+export const isTestnet = (): boolean => {
+  return API_CONFIG.STELLAR.NETWORK.PASSphrase.includes('Test')
+}
+
+/**
+ * Helper function to get network name
+ */
+export const getNetworkName = (): string => {
+  return isTestnet() ? 'Testnet' : 'Mainnet'
 }
