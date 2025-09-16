@@ -336,7 +336,7 @@ export default function EventsPage() {
         <SearchEventsModal
           isOpen={showSearchModal}
           onClose={() => setShowSearchModal(false)}
-          onSubmit={handleSearchSubmit}
+          onSearch={handleSearchSubmit}
         />
 
         <FilterEventsModal
