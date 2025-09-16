@@ -5,7 +5,7 @@
   "private": true,
   "description": "EventCoin Frontend - Next.js App",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
+    "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint --max-warnings 0",
