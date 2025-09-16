@@ -6,7 +6,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, contractevent, contracte
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    FeeRateExceeds100Percent = 1,
+    FeeRateExceeds10Percent = 1,
     AmountMustBePositive = 2,
     ContractNotInitialized = 3,
     InsufficientBalanceFromSender = 4,
@@ -86,8 +86,8 @@ impl EventPaymentContract {
             return Err(ContractError::AlreadyInitialized);
         }
 
-        if default_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
+        if default_fee_rate > 1000 {
+            return Err(ContractError::FeeRateExceeds10Percent);
         }
 
         let config = ContractConfig {
@@ -100,35 +100,24 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Consulta configuração do contrato (apenas admin)
-    pub fn get_config(env: Env, admin: Address) -> Result<ContractConfig, ContractError> {
-        admin.require_auth();
-
-        let config: ContractConfig = env.storage().instance().get(&CONFIG)
-            .ok_or(ContractError::ContractNotInitialized)?;
-
-        // Verificar se quem está chamando é realmente o admin
-        if admin != config.admin {
-            return Err(ContractError::NotEventOrganizer); // Reutilizando erro existente
-        }
-
-        Ok(config)
+    /// Consulta configuração do contrato
+    pub fn get_config(env: Env) -> ContractConfig {
+        env.storage().instance().get(&CONFIG).unwrap_or(ContractConfig {
+            default_fee_rate: 500, // 5% padrão
+            admin: env.current_contract_address(),
+            next_event_id: 1,
+        })
     }
 
     /// Atualiza taxa padrão (apenas admin)
-    pub fn update_default_fee_rate(env: Env, admin: Address, new_fee_rate: u32) -> Result<(), ContractError> {
-        admin.require_auth();
-
+    pub fn update_default_fee_rate(env: Env, new_fee_rate: u32) -> Result<(), ContractError> {
         let mut config: ContractConfig = env.storage().instance().get(&CONFIG)
             .ok_or(ContractError::ContractNotInitialized)?;
 
-        // Verificar se quem está chamando é realmente o admin
-        if admin != config.admin {
-            return Err(ContractError::NotEventOrganizer); // Reutilizando erro existente
-        }
+        config.admin.require_auth();
 
-        if new_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
+        if new_fee_rate > 1000 {
+            return Err(ContractError::FeeRateExceeds10Percent);
         }
 
         config.default_fee_rate = new_fee_rate;
@@ -166,8 +155,8 @@ impl EventPaymentContract {
 
         // Usar taxa personalizada ou padrão
         let event_fee_rate = fee_rate.unwrap_or(config.default_fee_rate);
-        if event_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
+        if event_fee_rate > 1000 {
+            return Err(ContractError::FeeRateExceeds10Percent);
         }
 
         let event_id = config.next_event_id;
@@ -221,14 +210,15 @@ impl EventPaymentContract {
     }
 
     /// Atualiza taxa de um evento específico (apenas organizador)
-    pub fn update_event_fee_rate(env: Env, event_id: u64, new_fee_rate: u32) -> Result<(), ContractError> {
+    /// TODO: Função privada para evitar que seja chamada publicamente neste momento
+    fn update_event_fee_rate(env: Env, event_id: u64, new_fee_rate: u32) -> Result<(), ContractError> {
         let mut event = Self::get_event(env.clone(), event_id)?;
 
         // Apenas organizador do evento pode alterar taxa
         event.organizer.require_auth();
 
-        if new_fee_rate > 10000 {
-            return Err(ContractError::FeeRateExceeds100Percent);
+        if new_fee_rate > 1000 {
+            return Err(ContractError::FeeRateExceeds10Percent);
         }
 
         event.fee_rate = new_fee_rate;
