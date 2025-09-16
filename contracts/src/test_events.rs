@@ -275,7 +275,7 @@ fn test_initialize_already_initialized() {
     assert!(result.is_err());
 
     // Verificar que a configuração original não foi alterada
-    let config = client.get_config();
+    let config = client.get_config(&admin);
     assert_eq!(config.default_fee_rate, 500); // Taxa original
     assert_eq!(config.admin, admin);
     assert_eq!(config.next_event_id, 1);
@@ -327,4 +327,39 @@ fn test_event_fee_withdrawal() {
     // Segunda tentativa de saque deve retornar 0
     let second_withdraw = client.withdraw_event_fees(&event_id);
     assert_eq!(second_withdraw, 0);
+}
+
+#[test]
+fn test_admin_only_functions() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(EventPaymentContract, ());
+    let client = EventPaymentContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+
+    client.initialize(&admin, &500);
+
+    // Admin deve conseguir acessar get_config
+    let config = client.get_config(&admin);
+    assert_eq!(config.default_fee_rate, 500);
+    assert_eq!(config.admin, admin);
+
+    // Admin deve conseguir atualizar taxa padrão
+    client.update_default_fee_rate(&admin, &300);
+    let updated_config = client.get_config(&admin);
+    assert_eq!(updated_config.default_fee_rate, 300);
+
+    // Non-admin não deve conseguir acessar get_config
+    let get_config_result = client.try_get_config(&non_admin);
+    assert!(get_config_result.is_err());
+
+    // Non-admin não deve conseguir atualizar taxa padrão
+    let update_result = client.try_update_default_fee_rate(&non_admin, &400);
+    assert!(update_result.is_err());
+
+    // Verificar que taxa não foi alterada por non-admin
+    let final_config = client.get_config(&admin);
+    assert_eq!(final_config.default_fee_rate, 300); // Ainda deve ser 300
 }
