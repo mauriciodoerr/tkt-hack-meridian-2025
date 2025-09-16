@@ -16,6 +16,7 @@ pub enum ContractError {
     NotEventOrganizer = 8,
     EventNameTooLong = 9,
     EventAlreadyExists = 10,
+    AlreadyInitialized = 11,
 }
 
 // Estrutura para representar um evento/festival
@@ -74,6 +75,11 @@ impl EventPaymentContract {
     /// Inicializa o contrato com taxa padrão e admin
     pub fn initialize(env: Env, admin: Address, default_fee_rate: u32) -> Result<(), ContractError> {
         admin.require_auth();
+
+        // Verifica se o contrato já foi inicializado
+        if env.storage().instance().has(&CONFIG) {
+            return Err(ContractError::AlreadyInitialized);
+        }
 
         if default_fee_rate > 10000 {
             return Err(ContractError::FeeRateExceeds100Percent);

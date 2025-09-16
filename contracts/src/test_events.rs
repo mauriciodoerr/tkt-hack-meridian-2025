@@ -257,3 +257,26 @@ fn test_backwards_compatibility() {
     assert_eq!(client.balance(&receiver), 240);  // 250 - 10
     assert_eq!(client.balance(&fee_payer), 110); // 100 + 10
 }
+
+#[test]
+fn test_initialize_already_initialized() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(EventPaymentContract, ());
+    let client = EventPaymentContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+
+    // Primeira inicialização deve funcionar
+    client.initialize(&admin, &500);
+
+    // Segunda inicialização deve falhar
+    let result = client.try_initialize(&admin, &600);
+    assert!(result.is_err());
+
+    // Verificar que a configuração original não foi alterada
+    let config = client.get_config();
+    assert_eq!(config.default_fee_rate, 500); // Taxa original
+    assert_eq!(config.admin, admin);
+    assert_eq!(config.next_event_id, 1);
+}
