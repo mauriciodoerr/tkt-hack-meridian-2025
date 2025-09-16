@@ -93,7 +93,7 @@ export const API_CONFIG = {
   
   // Mock configuration
   MOCK: {
-    ENABLED: process.env.NEXT_PUBLIC_USE_MOCK === 'true' || process.env.NODE_ENV === 'development',
+    ENABLED: process.env.NEXT_PUBLIC_USE_MOCK === 'true',
     DELAY: 500, // Simulate network delay
   },
 }
