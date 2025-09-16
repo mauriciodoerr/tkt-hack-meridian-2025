@@ -21,12 +21,14 @@ import {
   Settings
 } from 'lucide-react'
 import { apiClient } from '../utils/api-client'
-import { DashboardStats, User, Payment } from '../types'
+import { DashboardStats, User, Payment, Goal, ChartsData } from '../types'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentTransactions, setRecentTransactions] = useState<Payment[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [chartsData, setChartsData] = useState<ChartsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState('month')
@@ -41,11 +43,13 @@ export default function DashboardPage() {
       setError(null)
 
       // Load user profile and balance
-      const [profileResponse, balanceResponse, statsResponse, transactionsResponse] = await Promise.all([
+      const [profileResponse, balanceResponse, statsResponse, transactionsResponse, goalsResponse, chartsResponse] = await Promise.all([
         apiClient.getProfile(),
         apiClient.getBalance(),
         apiClient.getDashboardStats(),
-        apiClient.getTransactions()
+        apiClient.getTransactions(),
+        apiClient.getGoals(),
+        apiClient.getChartsData()
       ])
 
       if (profileResponse.success) {
@@ -68,6 +72,14 @@ export default function DashboardPage() {
       if (transactionsResponse.success) {
         // Get only recent transactions (last 5)
         setRecentTransactions(transactionsResponse.data.slice(0, 5))
+      }
+
+      if (goalsResponse.success) {
+        setGoals(goalsResponse.data)
+      }
+
+      if (chartsResponse.success) {
+        setChartsData(chartsResponse.data)
       }
 
     } catch (err) {
@@ -153,62 +165,19 @@ export default function DashboardPage() {
     }
   ] : []
 
-  const goalsData = [
-    {
-      id: '1',
-      title: 'Participar de 10 eventos este ano',
-      target: 10,
-      current: stats?.userStats.totalParticipants || 0,
-      type: 'events' as const,
-      deadline: '31/12/2024',
-      completed: false
-    },
-    {
-      id: '2',
-      title: 'Economizar R$ 500 para próximo festival',
-      target: 500,
-      current: user?.balance || 0,
-      type: 'savings' as const,
-      deadline: '15/03/2024',
-      completed: false
-    },
-    {
-      id: '3',
-      title: 'Conhecer 20 pessoas em eventos',
-      target: 20,
-      current: 15,
-      type: 'social' as const,
-      deadline: '30/06/2024',
-      completed: false
-    }
-  ]
-
-  const notificationsData = [
-    {
-      id: '1',
-      type: 'success' as const,
-      title: 'Meta de eventos atingida!',
-      message: `Você participou de ${stats?.userStats.totalParticipants || 0} eventos este mês!`,
-      timestamp: '2 horas atrás',
-      read: false
-    },
-    {
-      id: '2',
-      type: 'warning' as const,
-      title: 'Saldo TKT baixo',
-      message: 'Seu saldo está abaixo de 100 TKT',
-      timestamp: '1 dia atrás',
-      read: false
-    },
-    {
-      id: '3',
-      type: 'info' as const,
-      title: 'Novo evento disponível',
-      message: 'Festival de Música 2024 está disponível',
-      timestamp: '2 dias atrás',
-      read: true
-    }
-  ]
+  // Transform goals data for component
+  const goalsData = goals.map(goal => ({
+    id: goal.id,
+    title: goal.title,
+    target: goal.target,
+    current: goal.current,
+    type: goal.type,
+    deadline: goal.deadline,
+    completed: goal.completed,
+    description: goal.description,
+    createdAt: goal.createdAt,
+    updatedAt: goal.updatedAt
+  }))
 
   return (
     <div className="min-h-screen bg-dark-900">
@@ -264,8 +233,14 @@ export default function DashboardPage() {
         {/* Filters */}
         <div className="mb-8">
           <DashboardFilters
-            selectedPeriod={selectedPeriod}
-            onPeriodChange={setSelectedPeriod}
+            onFilterChange={(filters) => {
+              console.log('Filters changed:', filters)
+              // Handle filter changes here
+            }}
+            onExport={(format) => {
+              console.log('Export as:', format)
+              // Handle export here
+            }}
           />
         </div>
 
@@ -289,9 +264,15 @@ export default function DashboardPage() {
           {/* Balance Card */}
           <div className="flex flex-col h-full">
             <BalanceCard
-              balance={user?.balance || 0}
-              tktBalance={user?.tktBalance || 0}
-              recentTransactions={recentTransactions}
+              balance={user?.tktBalance || 0}
+              currency="TKT"
+              recentTransactions={recentTransactions.map(tx => ({
+                id: tx.id,
+                type: tx.type === 'purchase' || tx.type === 'event_payment' ? 'debit' : 'credit',
+                amount: tx.amount,
+                description: tx.description,
+                timestamp: tx.timestamp
+              }))}
             />
           </div>
 
@@ -305,8 +286,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Charts Card */}
           <ChartsCard
-            balanceHistory={[]} // Will be implemented with real data
-            spendingByCategory={[]} // Will be implemented with real data
+            balanceHistory={chartsData?.balanceHistory.map(item => ({
+              date: item.date,
+              balance: item.value
+            })) || []}
+            spendingByCategory={chartsData?.spendingByCategory || []}
           />
 
           {/* Notifications Card */}
@@ -317,39 +301,22 @@ export default function DashboardPage() {
                 variant="ghost"
                 size="sm"
                 className="text-gray-400 hover:text-white"
+                onClick={() => {
+                  // This will be handled by the NotificationBell component
+                  console.log('Mark all as read')
+                }}
               >
                 Marcar todas como lidas
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {notificationsData.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 rounded-lg border ${
-                      notification.read
-                        ? 'bg-dark-700 border-dark-600'
-                        : 'bg-primary-500/10 border-primary-500/20'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-white font-semibold text-sm mb-1">
-                          {notification.title}
-                        </h4>
-                        <p className="text-gray-400 text-sm mb-2">
-                          {notification.message}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          {notification.timestamp}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <div className="w-2 h-2 bg-primary-500 rounded-full ml-2 mt-1"></div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="text-center py-8">
+                <p className="text-gray-400 mb-4">
+                  As notificações são gerenciadas pelo sistema de notificações global.
+                </p>
+                <p className="text-gray-500 text-sm">
+                  Use o sino de notificações na barra de navegação para ver todas as notificações.
+                </p>
               </div>
             </CardContent>
           </Card>

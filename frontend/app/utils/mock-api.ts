@@ -5,8 +5,8 @@
  */
 
 import { API_CONFIG } from './api-config'
-import { mockEvents, mockNotifications, mockUsers, mockPayments, mockDEXPools, mockDashboardStats } from './mock-data'
-import { Event, Notification, User, Payment, DEXPool, DashboardStats, ApiResponse, PaginatedResponse, EventFilters, CreateEventForm, LoginForm, RegisterForm, AuthUser } from '../types'
+import { mockEvents, mockNotifications, mockUsers, mockPayments, mockDEXPools, mockDashboardStats, mockGoals, mockChartsData } from './mock-data'
+import { Event, Notification, User, Payment, DEXPool, DashboardStats, Goal, ChartsData, ApiResponse, PaginatedResponse, EventFilters, CreateEventForm, LoginForm, RegisterForm, AuthUser } from '../types'
 
 // Simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -357,6 +357,50 @@ class MockAPI {
   async getPaymentStats(): Promise<ApiResponse<any>> {
     return MockAPI.staticSimulateRequest(mockDashboardStats.paymentStats)
   }
+
+  // Goals Endpoints
+  async getGoals(): Promise<ApiResponse<Goal[]>> {
+    return MockAPI.staticSimulateRequest(mockGoals)
+  }
+
+  async createGoal(goalData: Partial<Goal>): Promise<ApiResponse<Goal>> {
+    const newGoal: Goal = {
+      id: String(mockGoals.length + 1),
+      title: goalData.title || 'Nova Meta',
+      target: goalData.target || 0,
+      current: 0,
+      type: goalData.type || 'events',
+      deadline: goalData.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      completed: false,
+      description: goalData.description,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    return MockAPI.staticSimulateRequest(newGoal)
+  }
+
+  async updateGoal(id: string, goalData: Partial<Goal>): Promise<ApiResponse<Goal>> {
+    const goal = mockGoals.find(g => g.id === id)
+    if (!goal) {
+      return {
+        success: false,
+        data: null as any,
+        error: 'Goal not found'
+      }
+    }
+    
+    const updatedGoal = { ...goal, ...goalData, updatedAt: new Date().toISOString() }
+    return MockAPI.staticSimulateRequest(updatedGoal)
+  }
+
+  async deleteGoal(id: string): Promise<ApiResponse<null>> {
+    return MockAPI.staticSimulateRequest(null)
+  }
+
+  // Charts Endpoints
+  async getChartsData(): Promise<ApiResponse<ChartsData>> {
+    return MockAPI.staticSimulateRequest(mockChartsData)
+  }
 }
 
 // Export singleton instance
@@ -396,5 +440,10 @@ export const {
   getDashboardStats,
   getEventStats,
   getUserStats,
-  getPaymentStats
+  getPaymentStats,
+  getGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  getChartsData
 } = mockAPI

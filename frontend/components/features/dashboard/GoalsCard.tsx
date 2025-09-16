@@ -3,21 +3,12 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../../ui'
 import { Target, Plus, TrendingUp, Wallet, Calendar, CheckCircle } from 'lucide-react'
-
-interface Goal {
-  id: string
-  title: string
-  target: number
-  current: number
-  type: 'savings' | 'events' | 'social'
-  deadline: string
-  completed: boolean
-}
+import { Goal } from '../../../app/types'
 
 interface GoalsCardProps {
   goals: Goal[]
-  onAddGoal: () => void
-  onEditGoal: (goalId: string) => void
+  onAddGoal?: () => void
+  onEditGoal?: (goalId: string) => void
 }
 
 export function GoalsCard({ goals, onAddGoal, onEditGoal }: GoalsCardProps) {
@@ -74,7 +65,7 @@ export function GoalsCard({ goals, onAddGoal, onEditGoal }: GoalsCardProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={onAddGoal}
+            onClick={onAddGoal || (() => console.log('Add goal'))}
           >
             <Plus className="w-4 h-4 mr-2" />
             Nova Meta
@@ -136,7 +127,7 @@ export function GoalsCard({ goals, onAddGoal, onEditGoal }: GoalsCardProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onEditGoal(goal.id)}
+                      onClick={() => onEditGoal?.(goal.id)}
                       className="text-xs"
                     >
                       Editar

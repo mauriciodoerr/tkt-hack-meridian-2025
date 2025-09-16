@@ -6,7 +6,7 @@
 
 import { API_CONFIG } from './api-config'
 import { mockAPI } from './mock-api'
-import { ApiResponse, PaginatedResponse, Event, Notification, User, Payment, DEXPool, DashboardStats, EventFilters, CreateEventForm, LoginForm, RegisterForm, AuthUser } from '../types'
+import { ApiResponse, PaginatedResponse, Event, Notification, User, Payment, DEXPool, DashboardStats, Goal, ChartsData, EventFilters, CreateEventForm, LoginForm, RegisterForm, AuthUser } from '../types'
 
 // API Client class
 class APIClient {
@@ -141,6 +141,11 @@ class APIClient {
       'GET /analytics/events': mockAPI.getEventStats,
       'GET /analytics/users': mockAPI.getUserStats,
       'GET /analytics/payments': mockAPI.getPaymentStats,
+      'GET /goals': mockAPI.getGoals,
+      'POST /goals': mockAPI.createGoal,
+      'PUT /goals/:id': mockAPI.updateGoal,
+      'DELETE /goals/:id': mockAPI.deleteGoal,
+      'GET /charts': mockAPI.getChartsData,
     }
 
     // Remove query parameters and path parameters for matching
@@ -358,6 +363,36 @@ class APIClient {
   async getPaymentStats(): Promise<ApiResponse<any>> {
     return this.request<any>('/analytics/payments')
   }
+
+  // Goals methods
+  async getGoals(): Promise<ApiResponse<Goal[]>> {
+    return this.request<Goal[]>('/goals')
+  }
+
+  async createGoal(goalData: Partial<Goal>): Promise<ApiResponse<Goal>> {
+    return this.request<Goal>('/goals', {
+      method: 'POST',
+      body: JSON.stringify(goalData),
+    })
+  }
+
+  async updateGoal(id: string, goalData: Partial<Goal>): Promise<ApiResponse<Goal>> {
+    return this.request<Goal>(`/goals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(goalData),
+    })
+  }
+
+  async deleteGoal(id: string): Promise<ApiResponse<null>> {
+    return this.request<null>(`/goals/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Charts methods
+  async getChartsData(): Promise<ApiResponse<ChartsData>> {
+    return this.request<ChartsData>('/charts')
+  }
 }
 
 // Export singleton instance
@@ -397,5 +432,10 @@ export const {
   getDashboardStats,
   getEventStats,
   getUserStats,
-  getPaymentStats
+  getPaymentStats,
+  getGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  getChartsData
 } = apiClient

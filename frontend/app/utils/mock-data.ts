@@ -4,7 +4,7 @@
  * Following the pattern from DeFi Risk Guardian
  */
 
-import { Event, Notification, User, Payment, DEXPool } from '../types'
+import { Event, Notification, User, Payment, DEXPool, Goal, ChartsData } from '../types'
 
 // Mock Users
 export const mockUsers: User[] = [
@@ -369,6 +369,99 @@ export const mockDEXPools: DEXPool[] = [
     fee: 0.3
   }
 ]
+
+// Mock Goals
+export const mockGoals: Goal[] = [
+  {
+    id: '1',
+    title: 'Participar de 10 eventos este ano',
+    target: 10,
+    current: 0,
+    type: 'events',
+    deadline: '31/12/2024',
+    completed: false,
+    description: 'Meta anual de participação em eventos',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z'
+  },
+  {
+    id: '2',
+    title: 'Economizar R$ 500 para próximo festival',
+    target: 500,
+    current: 0,
+    type: 'savings',
+    deadline: '15/03/2024',
+    completed: false,
+    description: 'Economia para o próximo festival de música',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z'
+  },
+  {
+    id: '3',
+    title: 'Conhecer 20 pessoas em eventos',
+    target: 20,
+    current: 15,
+    type: 'social',
+    deadline: '30/06/2024',
+    completed: false,
+    description: 'Expandir rede de contatos através de eventos',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z'
+  }
+]
+
+// Mock Charts Data
+export const mockChartsData: ChartsData = {
+  balanceHistory: [
+    { date: '2024-01-01', value: 1000, label: 'Janeiro' },
+    { date: '2024-02-01', value: 1200, label: 'Fevereiro' },
+    { date: '2024-03-01', value: 1100, label: 'Março' },
+    { date: '2024-04-01', value: 1300, label: 'Abril' },
+    { date: '2024-05-01', value: 1250, label: 'Maio' },
+    { date: '2024-06-01', value: 1400, label: 'Junho' },
+    { date: '2024-07-01', value: 1350, label: 'Julho' },
+    { date: '2024-08-01', value: 1500, label: 'Agosto' },
+    { date: '2024-09-01', value: 1450, label: 'Setembro' },
+    { date: '2024-10-01', value: 1600, label: 'Outubro' },
+    { date: '2024-11-01', value: 1550, label: 'Novembro' },
+    { date: '2024-12-01', value: 1250, label: 'Dezembro' }
+  ],
+  spendingByCategory: [
+    { category: 'Música', amount: 450, percentage: 35, color: '#0ea5e9' },
+    { category: 'Tecnologia', amount: 300, percentage: 23, color: '#d946ef' },
+    { category: 'Networking', amount: 250, percentage: 19, color: '#f97316' },
+    { category: 'Educação', amount: 200, percentage: 15, color: '#10b981' },
+    { category: 'Hackathon', amount: 100, percentage: 8, color: '#8b5cf6' }
+  ],
+  eventsOverTime: [
+    { date: '2024-01-01', value: 2, label: 'Janeiro' },
+    { date: '2024-02-01', value: 3, label: 'Fevereiro' },
+    { date: '2024-03-01', value: 1, label: 'Março' },
+    { date: '2024-04-01', value: 4, label: 'Abril' },
+    { date: '2024-05-01', value: 2, label: 'Maio' },
+    { date: '2024-06-01', value: 5, label: 'Junho' },
+    { date: '2024-07-01', value: 3, label: 'Julho' },
+    { date: '2024-08-01', value: 6, label: 'Agosto' },
+    { date: '2024-09-01', value: 4, label: 'Setembro' },
+    { date: '2024-10-01', value: 7, label: 'Outubro' },
+    { date: '2024-11-01', value: 5, label: 'Novembro' },
+    { date: '2024-12-01', value: 0, label: 'Dezembro' }
+  ],
+  revenueOverTime: [
+    { date: '2024-01-01', value: 200, label: 'Janeiro' },
+    { date: '2024-02-01', value: 350, label: 'Fevereiro' },
+    { date: '2024-03-01', value: 150, label: 'Março' },
+    { date: '2024-04-01', value: 500, label: 'Abril' },
+    { date: '2024-05-01', value: 300, label: 'Maio' },
+    { date: '2024-06-01', value: 600, label: 'Junho' },
+    { date: '2024-07-01', value: 400, label: 'Julho' },
+    { date: '2024-08-01', value: 750, label: 'Agosto' },
+    { date: '2024-09-01', value: 550, label: 'Setembro' },
+    { date: '2024-10-01', value: 800, label: 'Outubro' },
+    { date: '2024-11-01', value: 650, label: 'Novembro' },
+    { date: '2024-12-01', value: 0, label: 'Dezembro' }
+  ]
+}
 
 // Mock Dashboard Stats
 export const mockDashboardStats = {

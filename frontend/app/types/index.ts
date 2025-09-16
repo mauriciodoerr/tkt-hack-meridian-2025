@@ -122,6 +122,7 @@ export interface EventFilters {
   attendees?: string
   rating?: string
   categories?: string[]
+  category?: string
   status?: string
   search?: string
 }
@@ -194,6 +195,41 @@ export interface AuthUser {
   avatar?: string
   token: string
   refreshToken: string
+}
+
+// Goals Types
+export interface Goal {
+  id: string
+  title: string
+  target: number
+  current: number
+  type: 'events' | 'savings' | 'social' | 'revenue'
+  deadline: string
+  completed: boolean
+  description?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Charts Types
+export interface ChartDataPoint {
+  date: string
+  value: number
+  label?: string
+}
+
+export interface SpendingByCategory {
+  category: string
+  amount: number
+  percentage: number
+  color: string
+}
+
+export interface ChartsData {
+  balanceHistory: ChartDataPoint[]
+  spendingByCategory: SpendingByCategory[]
+  eventsOverTime: ChartDataPoint[]
+  revenueOverTime: ChartDataPoint[]
 }
 
 // Component Props Types
