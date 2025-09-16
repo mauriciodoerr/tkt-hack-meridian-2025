@@ -512,6 +512,49 @@ fn test_event_fee_withdrawal() {
 }
 
 #[test]
+fn test_create_event_with_allowance() {
+    let (env, client, _admin, _token_address) = setup_test();
+    let organizer = Address::generate(&env);
+
+    // Criar evento com allowance automático
+    let event_name = String::from_str(&env, "Festival with Allowance");
+    let max_allowance = 1000;
+    let event_id = client.create_event_with_allowance(&organizer, &event_name, &None, &max_allowance);
+
+    assert_eq!(event_id, 1);
+
+    // Verificar se o evento foi criado corretamente
+    let event = client.get_event(&event_id);
+    assert_eq!(event.organizer, organizer);
+    assert_eq!(event.name, event_name);
+
+    // Verificar se o allowance foi definido
+    let allowance = client.get_fee_authorization(&organizer);
+    assert_eq!(allowance, max_allowance);
+}
+
+#[test]
+fn test_increase_event_allowance() {
+    let (env, client, _admin, _token_address) = setup_test();
+    let organizer = Address::generate(&env);
+
+    // Criar evento primeiro
+    let event_name = String::from_str(&env, "Festival");
+    let event_id = client.create_event(&organizer, &event_name, &None);
+
+    // Dar allowance inicial
+    client.authorize_fee_payments(&organizer, &500);
+    assert_eq!(client.get_fee_authorization(&organizer), 500);
+
+    // Aumentar allowance
+    client.increase_event_allowance(&event_id, &300);
+
+    // Verificar novo allowance
+    let new_allowance = client.get_fee_authorization(&organizer);
+    assert_eq!(new_allowance, 800); // 500 + 300
+}
+
+#[test]
 fn test_admin_only_functions() {
     let (env, client, admin, _token_address) = setup_test();
     let non_admin = Address::generate(&env);

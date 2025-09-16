@@ -211,6 +211,33 @@ impl EventPaymentContract {
         Ok(event_id)
     }
 
+    /// Cria um evento e autoriza automaticamente o contrato a gastar tokens do organizador para taxas
+    pub fn create_event_with_allowance(
+        env: Env,
+        organizer: Address,
+        name: String,
+        fee_rate: Option<u32>,
+        max_allowance: i128
+    ) -> Result<u64, ContractError> {
+        // A autenticação será feita dentro de create_event()
+
+        if max_allowance <= 0 {
+            return Err(ContractError::AmountMustBePositive);
+        }
+
+        // Criar o evento primeiro (isso já faz organizer.require_auth())
+        let event_id = Self::create_event(env.clone(), organizer.clone(), name, fee_rate)?;
+
+        // Obter configuração para acessar token
+        let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
+        let token = TokenClient::new(&env, &config.token_address);
+
+        // Dar allowance para o contrato gastar tokens do organizador
+        token.approve(&organizer, &env.current_contract_address(), &max_allowance, &99999999);
+
+        Ok(event_id)
+    }
+
     /// Ativa ou desativa um evento (apenas organizador)
     pub fn set_event_status(env: Env, event_id: u64, is_active: bool) -> Result<(), ContractError> {
         let mut event = Self::get_event(env.clone(), event_id)?;
@@ -578,6 +605,34 @@ impl EventPaymentContract {
 
         // Remove allowance do token (zera a autorização)
         token.approve(&fee_payer, &env.current_contract_address(), &0, &1);
+    }
+
+    /// Permite ao organizador aumentar o allowance para cobrir mais taxas do evento
+    pub fn increase_event_allowance(
+        env: Env,
+        event_id: u64,
+        additional_allowance: i128
+    ) -> Result<(), ContractError> {
+        if additional_allowance <= 0 {
+            return Err(ContractError::AmountMustBePositive);
+        }
+
+        // Verificar se evento existe e obter organizador
+        let event = Self::get_event(env.clone(), event_id)?;
+        event.organizer.require_auth();
+
+        // Obter configuração para acessar token
+        let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
+        let token = TokenClient::new(&env, &config.token_address);
+
+        // Obter allowance atual
+        let current_allowance = token.allowance(&event.organizer, &env.current_contract_address());
+        let new_allowance = current_allowance + additional_allowance;
+
+        // Atualizar allowance
+        token.approve(&event.organizer, &env.current_contract_address(), &new_allowance, &99999999);
+
+        Ok(())
     }
 
     // =====================================
