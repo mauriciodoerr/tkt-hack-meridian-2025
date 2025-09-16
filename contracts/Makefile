@@ -1,6 +1,6 @@
 # Makefile para otimização do contrato Soroban
 
-.PHONY: build test optimize clean install-deps check-size
+.PHONY: build test optimize clean install-deps check-size generate-idl
 
 # Build normal
 build:
@@ -37,8 +37,13 @@ clean:
 release: clean test optimize check-size
 	@echo "✅ Release build complete!"
 
+# Gerar IDL e bindings
+generate-idl: build
+	@echo "📋 Generating IDL and bindings..."
+	@./generate-idl.sh
+
 # Deploy para Soroban (exemplo)
-deploy: optimize
+deploy: optimize generate-idl
 	@echo "🚀 Deploying optimized contract..."
 	@echo "Use: soroban contract deploy --wasm target/wasm32-unknown-unknown/release/payment_with_fee_optimized.wasm --source account --network testnet"
 
