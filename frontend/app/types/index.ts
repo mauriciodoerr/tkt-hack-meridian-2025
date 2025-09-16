@@ -46,6 +46,10 @@ export interface Event {
   ticketBatches?: TicketBatch[]
   createdAt?: string
   updatedAt?: string
+  // Contract-specific fields
+  feeRate?: number
+  totalVolume?: number
+  totalVolumeStroops?: string
 }
 
 // Notification Types

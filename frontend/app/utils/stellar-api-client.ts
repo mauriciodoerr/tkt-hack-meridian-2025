@@ -215,11 +215,17 @@ class StellarAPIClient {
     filters?: EventFilters
   ): Promise<StellarApiResponse<PaginatedStellarResponse<Event>>> {
     try {
+      console.log('🔍 Getting events from contract...', { page, limit, filters });
+      
       // Call contract method to list events
-      const tx = await this.contractClient.list_events({ limit: limit * 2 }); // Get more to filter
+      const tx = await this.contractClient.list_events({ 
+        limit: Math.min(limit * 3, 50) // Get more to filter, max 50 as per contract
+      });
+      
       const result = await tx.simulate();
 
       if (!result.result) {
+        console.log('❌ No events found in contract result');
         return {
           success: false,
           data: {
@@ -230,10 +236,64 @@ class StellarAPIClient {
         };
       }
 
-      let events = (result.result as unknown as any[]).map(
-        (contractEvent: any) =>
-          this.transformContractEventToEvent(contractEvent)
+      console.log('✅ Contract returned events:', result.result);
+      console.log('🔍 Result type:', typeof result.result);
+      console.log('🔍 Result constructor:', result.result?.constructor?.name);
+
+      // Handle different result types from the contract
+      let contractEvents: any[] = [];
+      
+      // The result.result is a Result<Event[], ErrorMessage> type
+      // We need to extract the actual data from the Result wrapper
+      const actualResult = result.result as any;
+      
+      console.log('🔍 Actual result structure:', actualResult);
+      console.log('🔍 Result keys:', Object.keys(actualResult || {}));
+      
+      if (Array.isArray(actualResult)) {
+        contractEvents = actualResult;
+        console.log('✅ Result is direct array');
+      } else if (actualResult && typeof actualResult === 'object') {
+        // Check if it's a Soroban Vec or similar structure
+        if (typeof actualResult.toArray === 'function') {
+          contractEvents = actualResult.toArray();
+          console.log('✅ Result has toArray method');
+        } else if (actualResult.length !== undefined) {
+          // Convert array-like object to array
+          contractEvents = Array.from(actualResult);
+          console.log('✅ Result is array-like');
+        } else if (actualResult.ok !== undefined) {
+          // Handle Result<T, E> type - extract the ok value
+          contractEvents = actualResult.ok || [];
+          console.log('✅ Result has ok property:', actualResult.ok);
+        } else if (actualResult.value !== undefined) {
+          // Alternative Result structure
+          contractEvents = Array.isArray(actualResult.value) ? actualResult.value : [actualResult.value];
+          console.log('✅ Result has value property:', actualResult.value);
+        } else if (actualResult.data !== undefined) {
+          // Another possible Result structure
+          contractEvents = Array.isArray(actualResult.data) ? actualResult.data : [actualResult.data];
+          console.log('✅ Result has data property:', actualResult.data);
+        } else {
+          // Single event object
+          contractEvents = [actualResult];
+          console.log('✅ Treating as single event object');
+        }
+      } else {
+        console.log('❌ Unexpected result format:', actualResult);
+        contractEvents = [];
+      }
+
+      console.log('📋 Contract events array:', contractEvents);
+
+      let events = contractEvents.map(
+        (contractEvent: any) => {
+          console.log('🔄 Transforming contract event:', contractEvent);
+          return this.transformContractEventToEvent(contractEvent);
+        }
       );
+
+      console.log('📋 Transformed events:', events);
 
       // Apply filters
       if (filters) {
@@ -267,6 +327,8 @@ class StellarAPIClient {
       const endIndex = startIndex + limit;
       const paginatedEvents = events.slice(startIndex, endIndex);
 
+      console.log('📄 Paginated events:', paginatedEvents);
+
       return {
         success: true,
         data: {
@@ -281,6 +343,7 @@ class StellarAPIClient {
         message: "Success",
       };
     } catch (error) {
+      console.error('❌ Error getting events:', error);
       return {
         success: false,
         data: {
@@ -325,16 +388,34 @@ class StellarAPIClient {
     eventData: CreateEventForm
   ): Promise<StellarApiResponse<Event>> {
     try {
-      // This would need to be called with the organizer's account address
+      console.log('🎉 Creating event with data:', eventData);
+      
+      // Get the organizer's address from localStorage (passkey wallet)
+      const organizerAddress = localStorage.getItem('passkeyWalletPub');
+      
+      if (!organizerAddress) {
+        return {
+          success: false,
+          data: null as any,
+          error: "User not authenticated. Please login with passkey.",
+        };
+      }
+
+      console.log('👤 Organizer address:', organizerAddress);
+
+      // Create event using contract bindings
       const tx = await this.contractClient.create_event({
-        organizer: "ORGANIZER_ADDRESS", // This should come from the authenticated user
+        organizer: organizerAddress,
         name: eventData.title,
-        fee_rate: undefined, // Use default fee rate
+        fee_rate: undefined, // Use default fee rate from contract
       });
+
+      console.log('📝 Event creation transaction prepared');
 
       const result = await tx.simulate();
 
       if (!result.result) {
+        console.log('❌ Event creation simulation failed');
         return {
           success: false,
           data: null as any,
@@ -342,9 +423,13 @@ class StellarAPIClient {
         };
       }
 
-      // Get the created event
-      return this.getEventById(result.result.toString());
+      console.log('✅ Event created with ID:', result.result);
+
+      // Get the created event details
+      const eventId = result.result.toString();
+      return this.getEventById(eventId);
     } catch (error) {
+      console.error('❌ Error creating event:', error);
       return {
         success: false,
         data: null as any,
@@ -898,18 +983,45 @@ class StellarAPIClient {
   }
 
   // Helper methods for data transformation
-  private transformContractEventToEvent(contractEvent: {
-    id: any;
-    name: string;
-    organizer: string;
-    created_at: any;
-    is_active: boolean;
-  }): Event {
+  private transformContractEventToEvent(contractEvent: any): Event {
+    console.log('🔄 Transforming contract event:', contractEvent);
+    console.log('🔍 Contract event properties:', Object.keys(contractEvent || {}));
+    
+    // Handle undefined or null contractEvent
+    if (!contractEvent) {
+      console.log('❌ Contract event is null or undefined');
+      throw new Error('Contract event is null or undefined');
+    }
+
+    // Safely extract properties with fallbacks based on actual contract structure
+    const id = contractEvent.id !== undefined ? contractEvent.id.toString() : 'unknown';
+    const name = contractEvent.name || contractEvent.title || 'Unnamed Event';
+    const organizer = contractEvent.organizer || 'Unknown Organizer';
+    const created_at = contractEvent.created_at || contractEvent.createdAt || Date.now() / 1000;
+    const is_active = contractEvent.is_active !== undefined ? contractEvent.is_active : 
+                     contractEvent.isActive !== undefined ? contractEvent.isActive : true;
+    const fee_rate = contractEvent.fee_rate || contractEvent.feeRate || 0;
+    const total_volume = contractEvent.total_volume || contractEvent.totalVolume || '0';
+
+    console.log('📋 Extracted properties:', { 
+      id, 
+      name, 
+      organizer, 
+      created_at, 
+      is_active, 
+      fee_rate, 
+      total_volume 
+    });
+
+    // Convert total_volume from stroops to XLM (1 XLM = 10,000,000 stroops)
+    const volumeInXLM = Number(total_volume) / 10000000;
+    const feeInXLM = (Number(total_volume) * fee_rate) / 100000000000; // fee_rate is in basis points
+
     return {
-      id: contractEvent.id.toString(),
-      title: contractEvent.name,
-      description: `Event created by ${contractEvent.organizer}`,
-      date: new Date(Number(contractEvent.created_at) * 1000)
+      id,
+      title: name,
+      description: `Event created by ${organizer}. Fee rate: ${(fee_rate / 100).toFixed(2)}%`,
+      date: new Date(Number(created_at) * 1000)
         .toISOString()
         .split("T")[0],
       time: "19:00",
@@ -917,19 +1029,19 @@ class StellarAPIClient {
       attendees: 0, // This would need to be tracked separately
       maxAttendees: 100, // Default value
       price: 0, // Default value
-      status: contractEvent.is_active ? "active" : "cancelled",
+      status: is_active ? "active" : "cancelled",
       rating: 0,
       image:
         "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop",
-      organizer: contractEvent.organizer,
+      organizer,
       category: "General",
       requiresApproval: false,
-      createdAt: new Date(
-        Number(contractEvent.created_at) * 1000
-      ).toISOString(),
-      updatedAt: new Date(
-        Number(contractEvent.created_at) * 1000
-      ).toISOString(),
+      createdAt: new Date(Number(created_at) * 1000).toISOString(),
+      updatedAt: new Date(Number(created_at) * 1000).toISOString(),
+      // Additional contract-specific fields
+      feeRate: fee_rate,
+      totalVolume: volumeInXLM,
+      totalVolumeStroops: total_volume,
     };
   }
 }
