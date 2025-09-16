@@ -8,14 +8,19 @@ import {
   nativeToScVal,
   Keypair,
 } from "@stellar/stellar-sdk";
-import { Buffer } from "buffer"; // polyfill para browser
+import { Buffer } from "buffer"; // polyfill p/ browser
 
 /** ===== Config ===== */
 const RPC_URL = "https://soroban-testnet.stellar.org";
 const server = new rpc.Server(RPC_URL);
 
-/** ===== Storage keys ===== */
+/** ===== Constantes de contexto ===== */
 export const CREDENTIAL_ID_KEY = "webauthnCredId";
+const PASSKEY_WALLET_PUB_KEY = "passkeyWalletPub"; // apenas público (ok salvar)
+const INFO_CONTEXT = "ticketcard-ed25519-seed-v1"; // FIXO (não use hostname)
+
+/** ===== Memo do Keypair ===== */
+let _memoKP: Keypair | null = null;
 
 /** ===== Helpers ===== */
 const base64urlToBase64 = (s: string) => {
@@ -39,10 +44,10 @@ function isSimError(resp: any): resp is { error: any; events?: any[] } {
   return resp && typeof resp === "object" && "error" in resp;
 }
 function hasResults(resp: any): resp is { results: any[] } {
-  return resp && typeof resp === "object" && "results" in resp;
+  return resp && typeof resp === "object" && "result" in resp;
 }
 
-// Status de envio (sendTransaction)
+// Status possíveis de envio (sendTransaction)
 export type SubmitStatus =
   | "PENDING"
   | "DUPLICATE"
@@ -69,7 +74,7 @@ export async function ensurePasskeyWithPrf(): Promise<string> {
       },
       pubKeyCredParams: [
         { type: "public-key", alg: -7 }, // ES256
-        { type: "public-key", alg: -257 }, // RS256
+        { type: "public-key", alg: -257 }, // RS256 (fallback)
       ],
       authenticatorSelection: {
         authenticatorAttachment: "platform",
@@ -77,7 +82,8 @@ export async function ensurePasskeyWithPrf(): Promise<string> {
       },
       attestation: "none",
       timeout: 60_000,
-      // @ts-expect-error - PRF 'enable' ainda não tipado na DOM lib
+      // Tipagem DOM ainda não inclui 'enable'; usar ts-expect-error:
+      // @ts-expect-error - PRF 'enable' ainda não tipado
       extensions: { prf: { enable: true } },
     },
   })) as PublicKeyCredential;
@@ -98,10 +104,8 @@ export async function deriveKeyFromPasskey(credentialIdBase64Url: string) {
   }
   const credId = b64ToU8(base64urlToBase64(credentialIdBase64Url));
 
-  // "info" de derivação: amarre ao domínio e versão do esquema
-  const info = new TextEncoder().encode(
-    `stellar-ed25519-seed-v1|${window.location.hostname}`
-  );
+  // INFO fixo (não depende do hostname)
+  const info = new TextEncoder().encode(INFO_CONTEXT);
 
   const assertion = (await navigator.credentials.get({
     publicKey: {
@@ -136,7 +140,32 @@ export function generateStellarKeypair(keyMaterial: ArrayBuffer | Uint8Array) {
   return Keypair.fromRawEd25519Seed(seedBuf);
 }
 
-/** ========== 4) Garante saldo (testnet) ========== */
+/** ========== 4) Memo + persistência do pubkey derivado ========== */
+async function getPasskeyKeypair(
+  credentialIdBase64Url: string
+): Promise<Keypair> {
+  if (_memoKP) return _memoKP;
+
+  const seed = await deriveKeyFromPasskey(credentialIdBase64Url);
+  const kp = generateStellarKeypair(seed);
+
+  const storedPub = localStorage.getItem(PASSKEY_WALLET_PUB_KEY);
+  if (!storedPub) {
+    localStorage.setItem(PASSKEY_WALLET_PUB_KEY, kp.publicKey());
+  } else if (storedPub !== kp.publicKey()) {
+    console.warn(
+      "[Passkey] Public key mudou — possivelmente nova passkey registrada ou RP/dominio diferente.",
+      { before: storedPub, now: kp.publicKey() }
+    );
+    // Atualiza o stored para o novo pub (opcional)
+    localStorage.setItem(PASSKEY_WALLET_PUB_KEY, kp.publicKey());
+  }
+
+  _memoKP = kp;
+  return kp;
+}
+
+/** ========== 5) Garante saldo (testnet) ========== */
 export async function ensureFundedOnTestnet(pubKey: string) {
   try {
     await server.getAccount(pubKey); // já existe
@@ -148,7 +177,7 @@ export async function ensureFundedOnTestnet(pubKey: string) {
   }
 }
 
-/** ========== 5) Invoca contrato usando a wallet derivada do Passkey ========== */
+/** ========== 6) Invoca contrato usando a wallet derivada do Passkey ========== */
 export async function invokeWithPasskeyWallet(params: {
   credentialIdBase64Url: string;
   contractId: string;
@@ -165,7 +194,8 @@ export async function invokeWithPasskeyWallet(params: {
     }
 > {
   const { credentialIdBase64Url, contractId, method } = params;
-  const args = (params.args ?? []).map((v) =>
+
+  const scArgs = (params.args ?? []).map((v) =>
     typeof v === "string"
       ? nativeToScVal(v, { type: "string" })
       : v instanceof Uint8Array
@@ -173,9 +203,8 @@ export async function invokeWithPasskeyWallet(params: {
       : nativeToScVal(v)
   );
 
-  // 1) Deriva seed e cria Keypair da wallet Passkey
-  const seed = await deriveKeyFromPasskey(credentialIdBase64Url);
-  const kp = generateStellarKeypair(seed);
+  // 1) Keypair derivado de forma determinística (memoizado)
+  const kp = await getPasskeyKeypair(credentialIdBase64Url);
 
   // 2) Garante que a conta exista (testnet)
   await ensureFundedOnTestnet(kp.publicKey());
@@ -187,8 +216,8 @@ export async function invokeWithPasskeyWallet(params: {
     fee: BASE_FEE,
     networkPassphrase: Networks.TESTNET,
   })
-    .addOperation(contract.call(method, ...args))
-    .setTimeout(30)
+    .addOperation(contract.call(method, ...scArgs))
+    .setTimeout(300) // janela maior para evitar txTooLate
     .build();
 
   // 4) Simula (diagnósticos de método/footprint)
@@ -212,6 +241,6 @@ export async function invokeWithPasskeyWallet(params: {
     hash: sent.hash,
     latestLedger: sent.latestLedger,
     publicKey: kp.publicKey(),
-    txHashPrepared: u8ToHex(prepared.hash()), // o hash da tx preparada
+    txHashPrepared: u8ToHex(prepared.hash()),
   };
 }

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { Button, Input, Card, CardContent, Modal } from "../../ui";
 import { CreditCard, Wallet, Zap, CheckCircle, ArrowRight } from "lucide-react";
-import { ensurePasskeyWithPrf } from "../../../app/lib/passkeyRegister";
-import { invokeWithPasskeyWallet } from "../../../app/lib/passkeyWallet";
+import {
+  ensurePasskeyWithPrf,
+  invokeWithPasskeyWallet,
+} from "../../../app/lib/passkeySoroban";
 
 interface PaymentFormProps {
   isOpen: boolean;
@@ -17,14 +19,15 @@ interface PaymentFormProps {
   onPayment: (amount: number, vendorId: string) => void;
 }
 
-/** ===== Ajuste aqui para o seu contrato real ===== */
+/** ===== Ajuste para o seu contrato real ===== */
 const CONTRACT_ID = "CDVH2KYGNMCSYILKGWC5PBEBKRF636CWOZEXQ37AGZG26MNGHYLNVAGB";
-const METHOD_NAME = "get_config"; // troque para o método real (ex.: "pay")
+const METHOD_NAME = "get_config"; // ex.: "pay"
 
 function mapArgsForContract(amount: number, vendorId?: string): any[] {
-  // Exemplo p/ "hello": uma string simples
+  // Exemplo para "hello":
   return ["world"];
-  // Ex.: p/ "pay": return [String(amount), vendorId ?? ""];
+  // Exemplo para "pay":
+  // return [String(amount), vendorId ?? ""];
 }
 
 export function PaymentForm({
@@ -48,15 +51,15 @@ export function PaymentForm({
     try {
       setIsProcessing(true);
 
-      // 1) garante passkey com PRF (se não existir, registra agora)
+      // 1) Garante passkey com PRF (não recria se já existir)
       const credentialId = await ensurePasskeyWithPrf();
 
-      // 2) monta args p/ contrato
+      // 2) Args p/ contrato
       const value = parseFloat(amount);
       if (!value || value <= 0) throw new Error("Valor inválido.");
       const args = mapArgsForContract(value, vendorData?.vendorId);
 
-      // 3) invoca o contrato usando a *wallet derivada do Passkey*
+      // 3) Invoca contrato com a wallet derivada do passkey
       const res = await invokeWithPasskeyWallet({
         credentialIdBase64Url: credentialId,
         contractId: CONTRACT_ID,
@@ -64,16 +67,16 @@ export function PaymentForm({
         //args,
       });
 
-      // Falhas imediatas: simulação falhou
-      if ("status" in res && res.status === "SIMULATION_FAILED") {
+      // Falha na simulação
+      if (res.status === "SIMULATION_FAILED") {
         console.error("Simulação falhou:", res.diag);
         throw new Error("Transação falhou na simulação (veja o console).");
       }
 
-      // OK agora: PENDING (enviada e aguardando inclusão) ou DUPLICATE (já enviada)
+      // OK imediato: PENDING (enviada) ou DUPLICATE (já enviada)
       const isOkNow = res.status === "PENDING" || res.status === "DUPLICATE";
 
-      // Falhas de envio: ERROR / TRY_AGAIN_LATER
+      // Falhas de envio
       if (res.status === "ERROR" || res.status === "TRY_AGAIN_LATER") {
         console.error("Envio falhou:", res);
         throw new Error("Transação não aceita pelo RPC (tente novamente).");
@@ -90,6 +93,7 @@ export function PaymentForm({
 
       setStep("success");
 
+      // auto-close opcional
       setTimeout(() => {
         onClose();
         setAmount("");
