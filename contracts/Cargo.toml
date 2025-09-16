@@ -31,6 +31,10 @@ lto = true              # Link-time optimization
 incremental = false     # Better optimization for release
 rpath = false           # Reduce binary size
 
+# Otimizações adicionais para WASM
+[profile.release.package."*"]
+opt-level = "z"          # Force size optimization for all dependencies
+
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true
