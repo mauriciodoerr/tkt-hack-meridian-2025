@@ -457,7 +457,7 @@ fn test_get_event_by_name() {
 
 #[test]
 fn test_initialize_already_initialized() {
-    let (env, client, admin, token_address) = setup_test();
+    let (_env, client, admin, token_address) = setup_test();
 
     // Setup já fez a primeira inicialização, então segunda deve falhar
     let result = client.try_initialize(&admin, &600, &token_address);
