@@ -1,111 +1,134 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '../../components/ui'
-import { Navbar } from '../../components/layout/Navbar'
-import { QRScanner } from '../../components/features/payments/QRScanner'
-import { PaymentForm } from '../../components/features/payments/PaymentForm'
-import { TokenPurchaseForm } from '../../components/features/payments/TokenPurchaseForm'
-import { P2PTransferForm } from '../../components/features/payments/P2PTransferForm'
-import { InviteFriendGeneralModal } from '../../components/features/payments/InviteFriendGeneralModal'
-import { QrCode, CreditCard, History, Wallet, Send, UserPlus } from 'lucide-react'
-import { apiClientInstance } from '../utils/api-client-factory'
-import { Payment, User } from '../types'
+import { useState, useEffect } from "react";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui";
+import { Navbar } from "../../components/layout/Navbar";
+import { QRScanner } from "../../components/features/payments/QRScanner";
+import { PaymentForm } from "../../components/features/payments/PaymentForm";
+import { TokenPurchaseForm } from "../../components/features/payments/TokenPurchaseForm";
+import { P2PTransferForm } from "../../components/features/payments/P2PTransferForm";
+import { InviteFriendGeneralModal } from "../../components/features/payments/InviteFriendGeneralModal";
+import {
+  QrCode,
+  CreditCard,
+  History,
+  Wallet,
+  Send,
+  UserPlus,
+} from "lucide-react";
+import { apiClientInstance } from "../utils/api-client-factory";
+import { Payment, User } from "../types";
 
 export default function PaymentsPage() {
-  const [showQRScanner, setShowQRScanner] = useState(false)
-  const [showPaymentForm, setShowPaymentForm] = useState(false)
-  const [showTokenPurchase, setShowTokenPurchase] = useState(false)
-  const [showP2PTransfer, setShowP2PTransfer] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showTokenPurchase, setShowTokenPurchase] = useState(false);
+  const [showP2PTransfer, setShowP2PTransfer] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [vendorData, setVendorData] = useState<{
-    vendorId: string
-    vendorName: string
-    eventId?: number,
-    eventName?: string
-  } | null>(null)
-  const [transactions, setTransactions] = useState<Payment[]>([])
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+    vendorId: string;
+    vendorName: string;
+    eventId?: number;
+    eventName?: string;
+  } | null>(null);
+  const [transactions, setTransactions] = useState<Payment[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
   const loadData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const [profileResponse, transactionsResponse, balanceResponse] = await Promise.all([
-        apiClientInstance.getProfile(),
-        apiClientInstance.getTransactions(),
-        apiClientInstance.getBalance()
-      ])
+      const [profileResponse, transactionsResponse, balanceResponse] =
+        await Promise.all([
+          apiClientInstance.getProfile(),
+          apiClientInstance.getTransactions(),
+          apiClientInstance.getBalance(),
+        ]);
 
       if (profileResponse.success) {
-        setUser(profileResponse.data)
+        setUser(profileResponse.data);
       }
 
       if (transactionsResponse.success) {
-        setTransactions(transactionsResponse.data)
+        setTransactions(transactionsResponse.data);
       }
 
       if (balanceResponse.success && profileResponse.success) {
-        setUser(prev => prev ? {
-          ...prev,
-          balance: balanceResponse.data.balance,
-          tktBalance: balanceResponse.data.tktBalance
-        } : null)
-      }
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                balance: balanceResponse.data.balance,
+                tktBalance: balanceResponse.data.tktBalance,
+              }
+            : null
+        );
 
+        console.log(user);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleQRScan = (data: string) => {
     try {
-      const parsedData = JSON.parse(data)
+      const parsedData = JSON.parse(data);
       setVendorData({
         vendorId: parsedData.vendorId,
         vendorName: parsedData.vendorName,
         eventId: parsedData.eventId,
-        eventName: parsedData.eventName
-      })
-      setShowQRScanner(false)
-      setShowPaymentForm(true)
+        eventName: parsedData.eventName,
+      });
+      setShowQRScanner(false);
+      setShowPaymentForm(true);
     } catch (error) {
-      console.error('Invalid QR code data:', error)
+      console.error("Invalid QR code data:", error);
     }
-  }
+  };
 
   const handlePayment = async (amount: number, description: string) => {
     try {
-      const fromAddress = localStorage.getItem('passkeyWalletPub');
-      const response = await apiClientInstance.transferP2P(fromAddress || '', vendorData?.vendorId || '', amount)
-      
+      const fromAddress = localStorage.getItem("passkeyWalletPub");
+      const response = await apiClientInstance.transferP2P(
+        fromAddress || "",
+        vendorData?.vendorId || "",
+        amount
+      );
+
       if (response.success) {
         // Refresh data
-        await loadData()
-        setShowPaymentForm(false)
-        setVendorData(null)
-        console.log('Payment successful:', response.data)
+        await loadData();
+        setShowPaymentForm(false);
+        setVendorData(null);
+        console.log("Payment successful:", response.data);
       } else {
-        console.error('Payment failed:', response.error)
+        console.error("Payment failed:", response.error);
       }
     } catch (err) {
-      console.error('Payment error:', err)
+      console.error("Payment error:", err);
     }
-  }
+  };
 
   // const handleTokenPurchase = async (amount: number) => {
   //   try {
   //     const response = await apiClientInstance.buyTokens(amount)
-      
+
   //     if (response.success) {
   //       // Refresh data
   //       await loadData()
@@ -122,7 +145,7 @@ export default function PaymentsPage() {
   // const handleP2PTransfer = async (recipientId: string, amount: number, description: string) => {
   //   try {
   //     const response = await apiClientInstance.transferP2P(recipientId, amount)
-      
+
   //     if (response.success) {
   //       // Refresh data
   //       await loadData()
@@ -138,29 +161,29 @@ export default function PaymentsPage() {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'purchase':
-        return <CreditCard className="w-4 h-4" />
-      case 'transfer':
-        return <Send className="w-4 h-4" />
-      case 'event_payment':
-        return <Wallet className="w-4 h-4" />
+      case "purchase":
+        return <CreditCard className="w-4 h-4" />;
+      case "transfer":
+        return <Send className="w-4 h-4" />;
+      case "event_payment":
+        return <Wallet className="w-4 h-4" />;
       default:
-        return <History className="w-4 h-4" />
+        return <History className="w-4 h-4" />;
     }
-  }
+  };
 
   const getTransactionColor = (type: string) => {
     switch (type) {
-      case 'purchase':
-        return 'text-red-400'
-      case 'transfer':
-        return 'text-blue-400'
-      case 'event_payment':
-        return 'text-green-400'
+      case "purchase":
+        return "text-red-400";
+      case "transfer":
+        return "text-blue-400";
+      case "event_payment":
+        return "text-green-400";
       default:
-        return 'text-gray-400'
+        return "text-gray-400";
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -172,7 +195,7 @@ export default function PaymentsPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -181,21 +204,26 @@ export default function PaymentsPage() {
         <Navbar />
         <div className="container mx-auto px-4 pt-24 pb-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">Error Loading Payments</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Error Loading Payments
+            </h2>
             <p className="text-gray-400 mb-4">{error}</p>
-            <Button onClick={loadData} className="bg-primary-500 hover:bg-primary-600">
+            <Button
+              onClick={loadData}
+              className="bg-primary-500 hover:bg-primary-600"
+            >
               Try Again
             </Button>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-dark-900">
       <Navbar />
-      
+
       <div className="container mx-auto px-4 pt-24 pb-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
@@ -209,7 +237,7 @@ export default function PaymentsPage() {
 
         {/* Balance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-dark-800 border-dark-700">
+          {/* <Card className="bg-dark-800 border-dark-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <Wallet className="w-5 h-5 mr-2" />
@@ -224,22 +252,20 @@ export default function PaymentsPage() {
                 Saldo disponível para compras
               </p>
             </CardContent>
-          </Card>
+          </Card> */}
 
           <Card className="bg-dark-800 border-dark-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <CreditCard className="w-5 h-5 mr-2" />
-                Saldo TKT
+                Saldo XLM
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white mb-2">
-                {user?.tktBalance?.toLocaleString('pt-BR') || '0'} TKT
+                {user?.tktBalance?.toLocaleString("pt-BR") || "0"} XLM
               </div>
-              <p className="text-gray-400 text-sm">
-                Tokens para eventos
-              </p>
+              <p className="text-gray-400 text-sm">Tokens para eventos</p>
             </CardContent>
           </Card>
         </div>
@@ -302,7 +328,11 @@ export default function PaymentsPage() {
                     className="flex items-center justify-between p-4 bg-dark-700 rounded-lg"
                   >
                     <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-full bg-dark-600 ${getTransactionColor(transaction.type)}`}>
+                      <div
+                        className={`p-2 rounded-full bg-dark-600 ${getTransactionColor(
+                          transaction.type
+                        )}`}
+                      >
                         {getTransactionIcon(transaction.type)}
                       </div>
                       <div>
@@ -310,15 +340,22 @@ export default function PaymentsPage() {
                           {transaction.description}
                         </h4>
                         <p className="text-gray-400 text-sm">
-                          {new Date(transaction.timestamp).toLocaleDateString('pt-BR')}
+                          {new Date(transaction.timestamp).toLocaleDateString(
+                            "pt-BR"
+                          )}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className={`font-semibold ${
-                        transaction.type === 'purchase' ? 'text-red-400' : 'text-green-400'
-                      }`}>
-                        {transaction.type === 'purchase' ? '-' : '+'}R$ {transaction.amount.toFixed(2)}
+                      <div
+                        className={`font-semibold ${
+                          transaction.type === "purchase"
+                            ? "text-red-400"
+                            : "text-green-400"
+                        }`}
+                      >
+                        {transaction.type === "purchase" ? "-" : "+"}R${" "}
+                        {transaction.amount.toFixed(2)}
                       </div>
                       <div className="text-gray-400 text-sm">
                         {transaction.tktAmount} TKT
@@ -341,8 +378,8 @@ export default function PaymentsPage() {
         <PaymentForm
           isOpen={showPaymentForm}
           onClose={() => {
-            setShowPaymentForm(false)
-            setVendorData(null)
+            setShowPaymentForm(false);
+            setVendorData(null);
           }}
           vendorData={vendorData}
           onPayment={handlePayment}
@@ -367,5 +404,5 @@ export default function PaymentsPage() {
         />
       </div>
     </div>
-  )
+  );
 }

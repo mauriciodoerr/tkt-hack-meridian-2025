@@ -7,6 +7,7 @@ import {
   BASE_FEE,
   nativeToScVal,
   Keypair,
+  Address,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer"; // polyfill p/ browser
 
@@ -195,13 +196,62 @@ export async function invokeWithPasskeyWallet(params: {
 > {
   const { credentialIdBase64Url, contractId, method } = params;
 
-  // TESTE: Argumentos hardcoded para verificar se o problema é na conversão ScVal
-  const scArgs = [
-    nativeToScVal(1, { type: "u64" }), // event_id
-    nativeToScVal("GACYTUFT27EMBUZRXHHY53PTCBI74SLHCXVNPY2QORRWUT4RGWF6EKSI", { type: "string" }), // from
-    nativeToScVal("GCZHFQ5Y4TZ5A4RGMPN2YLWVBQDIF6YUBHHBZYLPLOSKHNTVFM4DDO77", { type: "string" }), // to
-    nativeToScVal(10, { type: "i128" }) // amount
-  ];
+  const STROOP_MULTIPLIER = BigInt("10000000");
+  function toStroops(x: number | string | bigint): string {
+    const s = typeof x === "bigint" ? x.toString() : String(x).trim();
+
+    if (s.includes(".")) {
+      const [intPart, fracPartRaw = ""] = s.split(".");
+      const frac = (fracPartRaw + "0000000").slice(0, 7); // completa 7 casas
+      return (
+        BigInt(intPart || "0") * STROOP_MULTIPLIER +
+        BigInt(frac)
+      ).toString();
+    }
+
+    return (BigInt(s) * STROOP_MULTIPLIER).toString();
+  }
+
+  function toAddressScVal(v: string) {
+    if (/^[GC][A-Z2-7]{55}$/.test(v)) {
+      return new Address(v).toScVal();
+    }
+    return null;
+  }
+  const scArgs = (params.args ?? []).map((v, i) => {
+    if (typeof v === "string") {
+      const addr = toAddressScVal(v);
+      if (addr) return addr;
+
+      if (i === 3) {
+        // amount passado como string → XLM → stroops (i128)
+        return nativeToScVal(toStroops(v), { type: "i128" });
+      }
+      return nativeToScVal(v, { type: "string" });
+    }
+
+    if (v instanceof Uint8Array) {
+      return nativeToScVal(v, { type: "bytes" });
+    }
+
+    if (typeof v === "number") {
+      if (i === 0) {
+        // event_id (u64)
+        return nativeToScVal(BigInt(v).toString(), { type: "u64" });
+      }
+      if (i === 3) {
+        // amount em XLM (number) → stroops (i128)
+        return nativeToScVal(toStroops(v), { type: "i128" });
+      }
+      return nativeToScVal(v);
+    }
+
+    if (typeof v === "bigint") {
+      return nativeToScVal(v.toString(), { type: i === 0 ? "u64" : "i128" });
+    }
+
+    return nativeToScVal(v);
+  });
 
   // 1) Keypair derivado de forma determinística (memoizado)
   const kp = await getPasskeyKeypair(credentialIdBase64Url);
@@ -215,7 +265,7 @@ export async function invokeWithPasskeyWallet(params: {
   const account = await server.getAccount(kp.publicKey());
   const contract = new Contract(contractId);
   const tx = new TransactionBuilder(account, {
-    fee: '100', // Contrato paga todas as fees
+    fee: "100", // Contrato paga todas as fees
     networkPassphrase: Networks.TESTNET,
   })
     .addOperation(contract.call(method, ...scArgs))
@@ -246,4 +296,3 @@ export async function invokeWithPasskeyWallet(params: {
     txHashPrepared: u8ToHex(prepared.hash()),
   };
 }
-
