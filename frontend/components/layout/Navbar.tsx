@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Button } from '../ui/Button'
 import { NotificationBell } from '../features/notifications/NotificationBell'
 import { Menu, X, Search } from 'lucide-react'
-import { apiClient } from '../../app/utils/api-client'
+import { apiClientInstance } from '../../app/utils/api-client-factory'
 import { Notification } from '../../app/types'
 
 interface NavbarProps {
@@ -22,7 +22,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
     const loadNotifications = async () => {
       try {
         setIsLoadingNotifications(true)
-        const response = await apiClient.getNotifications()
+        const response = await apiClientInstance.getNotifications()
         if (response.success) {
           setNotifications(response.data)
         }
@@ -38,7 +38,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await apiClient.markNotificationAsRead(id)
+      await apiClientInstance.markNotificationAsRead(id)
       setNotifications(prev => 
         prev.map(notification => 
           notification.id === id 
@@ -53,7 +53,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await apiClient.markAllNotificationsAsRead()
+      await apiClientInstance.markAllNotificationsAsRead()
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
       )

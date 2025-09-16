@@ -9,7 +9,7 @@ import { TokenPurchaseForm } from '../../components/features/payments/TokenPurch
 import { P2PTransferForm } from '../../components/features/payments/P2PTransferForm'
 import { InviteFriendGeneralModal } from '../../components/features/payments/InviteFriendGeneralModal'
 import { QrCode, CreditCard, History, Wallet, Send, UserPlus } from 'lucide-react'
-import { apiClient } from '../utils/api-client'
+import { apiClientInstance } from '../utils/api-client-factory'
 import { Payment, User } from '../types'
 
 export default function PaymentsPage() {
@@ -38,9 +38,9 @@ export default function PaymentsPage() {
       setError(null)
 
       const [profileResponse, transactionsResponse, balanceResponse] = await Promise.all([
-        apiClient.getProfile(),
-        apiClient.getTransactions(),
-        apiClient.getBalance()
+        apiClientInstance.getProfile(),
+        apiClientInstance.getTransactions(),
+        apiClientInstance.getBalance()
       ])
 
       if (profileResponse.success) {
@@ -83,7 +83,7 @@ export default function PaymentsPage() {
 
   const handlePayment = async (amount: number, description: string) => {
     try {
-      const response = await apiClient.transferP2P(vendorData?.vendorId || '', amount)
+      const response = await apiClientInstance.transferP2P(vendorData?.vendorId || '', amount)
       
       if (response.success) {
         // Refresh data
@@ -101,7 +101,7 @@ export default function PaymentsPage() {
 
   const handleTokenPurchase = async (amount: number) => {
     try {
-      const response = await apiClient.buyTokens(amount)
+      const response = await apiClientInstance.buyTokens(amount)
       
       if (response.success) {
         // Refresh data
@@ -118,7 +118,7 @@ export default function PaymentsPage() {
 
   const handleP2PTransfer = async (recipientId: string, amount: number, description: string) => {
     try {
-      const response = await apiClient.transferP2P(recipientId, amount)
+      const response = await apiClientInstance.transferP2P(recipientId, amount)
       
       if (response.success) {
         // Refresh data
