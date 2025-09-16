@@ -34,11 +34,9 @@ tkt-hack-meridian-2025/
 - **Smart Contracts**
 
   - Soroban (Rust-based WASM contracts)
-  - OpenZeppelin for Stellar templates
 
 - **Ecosystem**
   - Stellar Testnet
-  - SoroSwap (liquidity + DeFi features)
 
 ---
 
