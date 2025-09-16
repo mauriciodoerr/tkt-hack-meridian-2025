@@ -4,6 +4,11 @@ TKT Project for HackMeridian 2025
 ---
 
 # Useful Links
+### Stellar
+https://developers.stellar.org/docs/tools/quickstart/getting-started/deploy-smart-contract
+
+
+
 ### HackMeridian 2025
 https://www.notion.so/HackMeridian-2025-Official-Rules-20ad0985c3a28056bc6fdadd36db015e
 
