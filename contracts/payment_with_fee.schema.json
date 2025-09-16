@@ -1,0 +1,303 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event Payment Contract Interface",
+  "description": "Soroban smart contract for event payments with fee management",
+  "version": "0.1.0",
+  "contract": {
+    "name": "EventPaymentContract",
+    "description": "Smart contract for managing event payments with fee collection",
+    "functions": {
+      "initialize": {
+        "description": "Initialize the contract with admin, default fee rate, and token address",
+        "inputs": [
+          {
+            "name": "admin",
+            "type": "Address",
+            "description": "Admin address for the contract"
+          },
+          {
+            "name": "default_fee_rate",
+            "type": "u32",
+            "description": "Default fee rate in basis points (e.g., 50 = 5%)"
+          },
+          {
+            "name": "token_address",
+            "type": "Address",
+            "description": "Address of the token contract to use for payments"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<(), ContractError>",
+            "description": "Success or error"
+          }
+        ]
+      },
+      "create_event": {
+        "description": "Create a new event",
+        "inputs": [
+          {
+            "name": "organizer",
+            "type": "Address",
+            "description": "Event organizer address"
+          },
+          {
+            "name": "name",
+            "type": "String",
+            "description": "Event name (max 50 characters)"
+          },
+          {
+            "name": "fee_rate",
+            "type": "Option<u32>",
+            "description": "Custom fee rate (basis points) or None for default"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<u64, ContractError>",
+            "description": "Event ID or error"
+          }
+        ]
+      },
+      "create_event_with_allowance": {
+        "description": "Create event and automatically set allowance for organizer",
+        "inputs": [
+          {
+            "name": "organizer",
+            "type": "Address",
+            "description": "Event organizer address"
+          },
+          {
+            "name": "name",
+            "type": "String",
+            "description": "Event name"
+          },
+          {
+            "name": "fee_rate",
+            "type": "Option<u32>",
+            "description": "Custom fee rate or None for default"
+          },
+          {
+            "name": "max_allowance",
+            "type": "i128",
+            "description": "Maximum allowance amount for fees"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<u64, ContractError>",
+            "description": "Event ID or error"
+          }
+        ]
+      },
+      "register_wallet_for_event": {
+        "description": "Register a wallet to participate in an event",
+        "inputs": [
+          {
+            "name": "event_id",
+            "type": "u64",
+            "description": "Event ID"
+          },
+          {
+            "name": "wallet",
+            "type": "Address",
+            "description": "Wallet address to register"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<(), ContractError>",
+            "description": "Success or error"
+          }
+        ]
+      },
+      "event_payment": {
+        "description": "Make a payment within an event",
+        "inputs": [
+          {
+            "name": "event_id",
+            "type": "u64",
+            "description": "Event ID"
+          },
+          {
+            "name": "from",
+            "type": "Address",
+            "description": "Sender address"
+          },
+          {
+            "name": "to",
+            "type": "Address",
+            "description": "Recipient address"
+          },
+          {
+            "name": "amount",
+            "type": "i128",
+            "description": "Payment amount"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<(), ContractError>",
+            "description": "Success or error"
+          }
+        ]
+      },
+      "withdraw_event_fees": {
+        "description": "Withdraw accumulated fees (organizer only, event must be inactive)",
+        "inputs": [
+          {
+            "name": "event_id",
+            "type": "u64",
+            "description": "Event ID"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<i128, ContractError>",
+            "description": "Withdrawn amount or error"
+          }
+        ]
+      },
+      "get_event": {
+        "description": "Get event information",
+        "inputs": [
+          {
+            "name": "event_id",
+            "type": "u64",
+            "description": "Event ID"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "Result<Event, ContractError>",
+            "description": "Event data or error"
+          }
+        ]
+      }
+    },
+    "types": {
+      "Event": {
+        "type": "struct",
+        "description": "Event data structure",
+        "fields": {
+          "id": {
+            "type": "u64",
+            "description": "Unique event identifier"
+          },
+          "name": {
+            "type": "String",
+            "description": "Event name"
+          },
+          "organizer": {
+            "type": "Address",
+            "description": "Event organizer address"
+          },
+          "fee_rate": {
+            "type": "u32",
+            "description": "Fee rate in basis points (1000 = 100%)"
+          },
+          "is_active": {
+            "type": "bool",
+            "description": "Whether the event is active"
+          },
+          "created_at": {
+            "type": "u64",
+            "description": "Event creation timestamp"
+          },
+          "total_volume": {
+            "type": "i128",
+            "description": "Total payment volume for this event"
+          }
+        }
+      },
+      "ContractConfig": {
+        "type": "struct",
+        "description": "Contract configuration",
+        "fields": {
+          "default_fee_rate": {
+            "type": "u32",
+            "description": "Default fee rate in basis points"
+          },
+          "admin": {
+            "type": "Address",
+            "description": "Contract admin address"
+          },
+          "next_event_id": {
+            "type": "u64",
+            "description": "Next available event ID"
+          },
+          "token_address": {
+            "type": "Address",
+            "description": "Token contract address"
+          }
+        }
+      },
+      "ContractError": {
+        "type": "enum",
+        "description": "Contract error types",
+        "variants": {
+          "FeeRateExceeds10Percent": 1,
+          "AmountMustBePositive": 2,
+          "ContractNotInitialized": 3,
+          "InsufficientBalanceFromSender": 4,
+          "InsufficientAllowance": 5,
+          "EventNotFound": 6,
+          "EventNotActive": 7,
+          "NotEventOrganizer": 8,
+          "EventNameTooLong": 9,
+          "EventAlreadyExists": 10,
+          "AlreadyInitialized": 11,
+          "EventStillActive": 12,
+          "WalletNotRegistered": 13,
+          "WalletAlreadyRegistered": 14,
+          "OrganizerCannotRegister": 15,
+          "NotAdmin": 16
+        }
+      }
+    },
+    "events": {
+      "EventCreated": {
+        "description": "Emitted when a new event is created",
+        "fields": {
+          "event_id": "u64",
+          "name": "String",
+          "organizer": "Address",
+          "fee_rate": "u32"
+        }
+      },
+      "PaymentEvent": {
+        "description": "Emitted when a payment is made",
+        "fields": {
+          "event_id": "u64",
+          "from": "Address",
+          "to": "Address",
+          "fee_payer": "Address",
+          "amount": "i128",
+          "fee_amount": "i128",
+          "fee_rate": "u32"
+        }
+      }
+    }
+  },
+  "usage_examples": {
+    "initialize_contract": {
+      "description": "Initialize the contract",
+      "call": "initialize(admin_address, 50, token_contract_address)"
+    },
+    "create_event": {
+      "description": "Create a new event with default fee",
+      "call": "create_event(organizer_address, \"Music Festival\", None)"
+    },
+    "create_event_with_custom_fee": {
+      "description": "Create event with custom 3% fee",
+      "call": "create_event(organizer_address, \"Concert\", Some(30))"
+    },
+    "register_and_pay": {
+      "description": "Register wallet and make payment",
+      "sequence": [
+        "register_wallet_for_event(1, wallet_address)",
+        "event_payment(1, sender, receiver, 1000)"
+      ]
+    }
+  }
+}
