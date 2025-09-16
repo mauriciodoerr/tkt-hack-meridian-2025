@@ -1,45 +1,55 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '../../ui'
-import { Calendar, Filter, Download, Target, Bell, TrendingUp } from 'lucide-react'
+import { useState } from "react";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "../../ui";
+import {
+  Calendar,
+  Filter,
+  Download,
+  Target,
+  Bell,
+  TrendingUp,
+} from "lucide-react";
 
 interface DashboardFiltersProps {
   onFilterChange: (filters: {
-    period: string
-    transactionType: string
-    eventId?: string
-  }) => void
-  onExport: (format: 'pdf' | 'csv') => void
+    period: string;
+    transactionType: string;
+    eventId?: string;
+  }) => void;
+  onExport: (format: "pdf" | "csv") => void;
 }
 
-export function DashboardFilters({ onFilterChange, onExport }: DashboardFiltersProps) {
-  const [period, setPeriod] = useState('30d')
-  const [transactionType, setTransactionType] = useState('all')
-  const [showFilters, setShowFilters] = useState(false)
+export function DashboardFilters({
+  onFilterChange,
+  onExport,
+}: DashboardFiltersProps) {
+  const [period, setPeriod] = useState("30d");
+  const [transactionType, setTransactionType] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleFilterChange = () => {
     onFilterChange({
       period,
       transactionType,
-    })
-  }
+    });
+  };
 
   const periods = [
-    { value: '7d', label: '7 dias' },
-    { value: '30d', label: '30 dias' },
-    { value: '90d', label: '90 dias' },
-    { value: '1y', label: '1 ano' },
-    { value: 'all', label: 'Todos' }
-  ]
+    { value: "7d", label: "7 days" },
+    { value: "30d", label: "30 days" },
+    { value: "90d", label: "90 days" },
+    { value: "1y", label: "1 ano" },
+    { value: "all", label: "All" },
+  ];
 
   const transactionTypes = [
-    { value: 'all', label: 'Todas' },
-    { value: 'payment', label: 'Pagamentos em Eventos' },
-    { value: 'topup', label: 'Recargas TKT' },
-    { value: 'transfer', label: 'Transferências P2P' },
-    { value: 'refund', label: 'Reembolsos' }
-  ]
+    { value: "all", label: "All" },
+    { value: "payment", label: "Payment in events" },
+    { value: "topup", label: "Recargas TKT" },
+    { value: "transfer", label: "Transferências P2P" },
+    { value: "refund", label: "Refunds" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -69,7 +79,11 @@ export function DashboardFilters({ onFilterChange, onExport }: DashboardFiltersP
               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary-500 focus:outline-none"
             >
               {transactionTypes.map((type) => (
-                <option key={type.value} value={type.value} className="bg-dark-800">
+                <option
+                  key={type.value}
+                  value={type.value}
+                  className="bg-dark-800"
+                >
                   {type.label}
                 </option>
               ))}
@@ -78,11 +92,7 @@ export function DashboardFilters({ onFilterChange, onExport }: DashboardFiltersP
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFilterChange}
-          >
+          <Button variant="outline" size="sm" onClick={handleFilterChange}>
             <TrendingUp className="w-4 h-4 mr-2" />
             Aplicar
           </Button>
@@ -148,20 +158,14 @@ export function DashboardFilters({ onFilterChange, onExport }: DashboardFiltersP
             </div>
 
             <div className="flex justify-end space-x-3 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(false)}
-              >
+              <Button variant="outline" onClick={() => setShowFilters(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleFilterChange}>
-                Aplicar Filtros
-              </Button>
+              <Button onClick={handleFilterChange}>Aplicar Filtros</Button>
             </div>
           </CardContent>
         </Card>
       )}
-
     </div>
-  )
+  );
 }
