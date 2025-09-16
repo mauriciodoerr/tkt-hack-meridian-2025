@@ -26,7 +26,7 @@ import {
 } from '../types'
 
 // Import contract bindings
-import { Client as ContractClient, networks } from 'bindings'
+import { Client as ContractClient } from 'bindings'
 
 // Unified Stellar API Client class
 class StellarAPIClient {
@@ -40,7 +40,6 @@ class StellarAPIClient {
     
     // Initialize contract client with network configuration
     this.contractClient = new ContractClient({
-      ...networks.futurenet, // or networks.testnet based on your network
       rpcUrl: buildRpcUrl(),
       networkPassphrase: getNetworkPassphrase(),
       contractId: getContractAddress(),
@@ -173,7 +172,7 @@ class StellarAPIClient {
         }
       }
 
-      let events = result.result.map((contractEvent: any) => this.transformContractEventToEvent(contractEvent))
+      let events = (result.result as unknown as any[]).map((contractEvent: any) => this.transformContractEventToEvent(contractEvent))
 
       // Apply filters
       if (filters) {
@@ -225,7 +224,7 @@ class StellarAPIClient {
 
   async getEventById(id: string): Promise<StellarApiResponse<Event>> {
     try {
-      const eventId = parseInt(id)
+      const eventId = BigInt(id)
       const tx = await this.contractClient.get_event({ event_id: eventId })
       const result = await tx.simulate()
       
@@ -237,7 +236,7 @@ class StellarAPIClient {
         }
       }
 
-      const event = this.transformContractEventToEvent(result.result)
+      const event = this.transformContractEventToEvent(result.result as any)
       return {
         success: true,
         data: event,
@@ -302,7 +301,7 @@ class StellarAPIClient {
 
   async joinEvent(id: string, userAddress: string): Promise<StellarApiResponse<{ success: boolean; message: string }>> {
     try {
-      const eventId = parseInt(id)
+      const eventId = BigInt(id)
       const tx = await this.contractClient.register_wallet_for_event({
         event_id: eventId,
         wallet: userAddress
@@ -334,7 +333,7 @@ class StellarAPIClient {
 
   async leaveEvent(id: string, userAddress: string): Promise<StellarApiResponse<{ success: boolean; message: string }>> {
     try {
-      const eventId = parseInt(id)
+      const eventId = BigInt(id)
       const tx = await this.contractClient.unregister_wallet_from_event({
         event_id: eventId,
         wallet: userAddress
