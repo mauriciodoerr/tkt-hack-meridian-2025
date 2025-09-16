@@ -17,6 +17,7 @@ pub enum ContractError {
     EventNameTooLong = 9,
     EventAlreadyExists = 10,
     AlreadyInitialized = 11,
+    EventStillActive = 12,
 }
 
 // Estrutura para representar um evento/festival
@@ -262,17 +263,15 @@ impl EventPaymentContract {
         env.storage().temporary().get(&balance_key).unwrap_or(0)
     }
 
-    /// Realiza pagamento para um evento específico com taxa paga por terceira carteira
-    pub fn event_payment_with_fee(
+    /// Realiza pagamento para um evento específico (organizador recebe as taxas)
+    pub fn event_payment(
         env: Env,
         event_id: u64,
         from: Address,
         to: Address,
-        fee_payer: Address,
         amount: i128,
     ) -> Result<(), ContractError> {
         from.require_auth();
-        fee_payer.require_auth();
 
         if amount <= 0 {
             return Err(ContractError::AmountMustBePositive);
@@ -295,10 +294,6 @@ impl EventPaymentContract {
             return Err(ContractError::InsufficientBalanceFromSender);
         }
 
-        // Obter saldo do pagador de taxa no evento
-        let fee_payer_balance_key = Self::event_balance_key(event_id, &fee_payer);
-        let fee_payer_balance: i128 = env.storage().temporary().get(&fee_payer_balance_key).unwrap_or(0);
-
         // Realiza as transferências
         // 1. Deduz valor total do remetente
         env.storage().temporary().set(&from_balance_key, &(from_balance - amount));
@@ -308,8 +303,10 @@ impl EventPaymentContract {
         let to_balance: i128 = env.storage().temporary().get(&to_balance_key).unwrap_or(0);
         env.storage().temporary().set(&to_balance_key, &(to_balance + net_amount));
 
-        // 3. Credita taxa ao pagador de taxa como recompensa
-        env.storage().temporary().set(&fee_payer_balance_key, &(fee_payer_balance + fee_amount));
+        // 3. Taxa fica travada no contrato para o organizador
+        let fee_key = Self::event_fee_key(event_id);
+        let current_fees: i128 = env.storage().persistent().get(&fee_key).unwrap_or(0);
+        env.storage().persistent().set(&fee_key, &(current_fees + fee_amount));
 
         // 4. Atualizar volume total do evento
         event.total_volume += amount;
@@ -321,7 +318,7 @@ impl EventPaymentContract {
             event_id,
             from: from.clone(),
             to: to.clone(),
-            fee_payer: fee_payer.clone(),
+            fee_payer: event.organizer.clone(), // Organizador é sempre o fee payer
             amount,
             fee_amount,
             fee_rate: event.fee_rate,
@@ -529,6 +526,40 @@ impl EventPaymentContract {
         Ok(())
     }
 
+    /// Consulta taxas acumuladas de um evento
+    pub fn get_event_fees(env: Env, event_id: u64) -> i128 {
+        let fee_key = Self::event_fee_key(event_id);
+        env.storage().persistent().get(&fee_key).unwrap_or(0)
+    }
+
+    /// Permite ao organizador sacar taxas acumuladas (apenas se evento estiver inativo)
+    pub fn withdraw_event_fees(env: Env, event_id: u64) -> Result<i128, ContractError> {
+        let event = Self::get_event(env.clone(), event_id)?;
+
+        // Apenas organizador pode sacar
+        event.organizer.require_auth();
+
+        // Evento deve estar inativo para permitir saque
+        if event.is_active {
+            return Err(ContractError::EventStillActive);
+        }
+
+        let fee_key = Self::event_fee_key(event_id);
+        let accumulated_fees: i128 = env.storage().persistent().get(&fee_key).unwrap_or(0);
+
+        if accumulated_fees > 0 {
+            // Credita as taxas ao saldo do organizador no evento
+            let organizer_balance_key = Self::event_balance_key(event_id, &event.organizer);
+            let current_balance: i128 = env.storage().temporary().get(&organizer_balance_key).unwrap_or(0);
+            env.storage().temporary().set(&organizer_balance_key, &(current_balance + accumulated_fees));
+
+            // Zera as taxas acumuladas
+            env.storage().persistent().remove(&fee_key);
+        }
+
+        Ok(accumulated_fees)
+    }
+
     // Função auxiliar para gerar chave de saldo geral
     fn balance_key(address: &Address) -> (&'static str, Address) {
         ("balance", address.clone())
@@ -552,6 +583,11 @@ impl EventPaymentContract {
     // Função auxiliar para gerar chave de allowance geral
     fn allowance_key(address: &Address) -> (&'static str, Address) {
         ("allowance", address.clone())
+    }
+
+    // Função auxiliar para gerar chave de taxas acumuladas por evento
+    fn event_fee_key(event_id: u64) -> (&'static str, u64) {
+        ("event_fee", event_id)
     }
 
 }

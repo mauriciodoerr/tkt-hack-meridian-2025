@@ -79,7 +79,7 @@ fn test_event_deposit_and_balance() {
 }
 
 #[test]
-fn test_event_payment_with_fee() {
+fn test_event_payment() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(EventPaymentContract, ());
@@ -89,7 +89,6 @@ fn test_event_payment_with_fee() {
     let organizer = Address::generate(&env);
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
-    let fee_payer = Address::generate(&env);
 
     client.initialize(&admin, &500); // 5%
 
@@ -99,15 +98,16 @@ fn test_event_payment_with_fee() {
 
     // Depositar fundos
     client.deposit_for_event(&event_id, &sender, &1000);
-    client.deposit_for_event(&event_id, &fee_payer, &100);
 
     // Realizar pagamento de 200 (taxa = 10, líquido = 190)
-    client.event_payment_with_fee(&event_id, &sender, &receiver, &fee_payer, &200);
+    client.event_payment(&event_id, &sender, &receiver, &200);
 
     // Verificar saldos finais
     assert_eq!(client.event_balance(&event_id, &sender), 800);    // 1000 - 200
     assert_eq!(client.event_balance(&event_id, &receiver), 190);  // 200 - 10
-    assert_eq!(client.event_balance(&event_id, &fee_payer), 110); // 100 + 10
+
+    // Verificar taxas acumuladas para o organizador
+    assert_eq!(client.get_event_fees(&event_id), 10); // Taxa travada no contrato
 
     // Verificar volume do evento
     let event = client.get_event(&event_id);
@@ -279,4 +279,52 @@ fn test_initialize_already_initialized() {
     assert_eq!(config.default_fee_rate, 500); // Taxa original
     assert_eq!(config.admin, admin);
     assert_eq!(config.next_event_id, 1);
+}
+
+#[test]
+fn test_event_fee_withdrawal() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(EventPaymentContract, ());
+    let client = EventPaymentContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let organizer = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+
+    client.initialize(&admin, &1000); // 10%
+
+    // Criar evento
+    let event_name = String::from_str(&env, "Music Festival");
+    let event_id = client.create_event(&organizer, &event_name, &None);
+
+    // Depositar fundos e fazer pagamentos
+    client.deposit_for_event(&event_id, &sender, &1000);
+    client.event_payment(&event_id, &sender, &receiver, &200); // Taxa: 20
+    client.event_payment(&event_id, &sender, &receiver, &300); // Taxa: 30
+
+    // Verificar taxas acumuladas
+    assert_eq!(client.get_event_fees(&event_id), 50); // 20 + 30
+
+    // Tentar sacar com evento ativo deve falhar
+    let withdraw_result = client.try_withdraw_event_fees(&event_id);
+    assert!(withdraw_result.is_err());
+
+    // Desativar evento
+    client.set_event_status(&event_id, &false);
+
+    // Agora deve conseguir sacar
+    let withdrawn = client.withdraw_event_fees(&event_id);
+    assert_eq!(withdrawn, 50);
+
+    // Verificar que organizador recebeu as taxas no saldo do evento
+    assert_eq!(client.event_balance(&event_id, &organizer), 50);
+
+    // Verificar que taxas foram zeradas
+    assert_eq!(client.get_event_fees(&event_id), 0);
+
+    // Segunda tentativa de saque deve retornar 0
+    let second_withdraw = client.withdraw_event_fees(&event_id);
+    assert_eq!(second_withdraw, 0);
 }
