@@ -21,10 +21,10 @@ export function LoginForm() {
     e.preventDefault()
     setIsLoading(true)
     
-    // Simular login
+    // Simulate login
     setTimeout(() => {
       setIsLoading(false)
-      // Redirecionar para dashboard
+      // Redirect to dashboard
     }, 2000)
   }
 
@@ -34,46 +34,46 @@ export function LoginForm() {
       setPasskeyError(null)
       setPasskeySuccess(null)
 
-      // 1) Verifica se já existe uma passkey registrada
+      // 1) Check if passkey is already registered
       const existingCredentialId = getStoredCredentialId()
       let credentialId = existingCredentialId
 
-      // 2) Se não existe, registra uma nova passkey
+      // 2) If not exists, register a new passkey
       if (!credentialId) {
         credentialId = await ensurePasskeyWithPrf()
-        setPasskeySuccess('Passkey registrada com sucesso!')
+        setPasskeySuccess('Passkey registered successfully!')
       }
 
-      // 3) Testa a autenticação chamando o contrato
+      // 3) Test authentication by calling contract
       const contractId = getContractAddress()
       const res = await invokeWithPasskeyWallet({
         credentialIdBase64Url: credentialId,
         contractId: contractId,
-        method: "get_config", // Método simples para testar autenticação
+        method: "get_config", // Simple method to test authentication
         args: [],
       })
 
-      // 4) Verifica o resultado
+      // 4) Check result
       if (res.status === "SIMULATION_FAILED") {
-        throw new Error("Falha na autenticação: " + JSON.stringify(res.diag))
+        throw new Error("Authentication failed: " + JSON.stringify(res.diag))
       }
 
       if (res.status === "ERROR" || res.status === "TRY_AGAIN_LATER") {
-        throw new Error("Erro na transação: " + res.status)
+        throw new Error("Transaction error: " + res.status)
       }
 
-      // 5) Sucesso - usuário autenticado
-      setPasskeySuccess(`Login realizado com sucesso! Wallet: ${res.publicKey?.slice(0, 8)}...`)
+      // 5) Success - user authenticated
+      setPasskeySuccess(`Login successful! Wallet: ${res.publicKey?.slice(0, 8)}...`)
       
-      // Simular redirecionamento para dashboard
+      // Simulate redirect to dashboard
       setTimeout(() => {
         // window.location.href = '/dashboard'
-        console.log('Redirecionando para dashboard...')
+        console.log('Redirecting to dashboard...')
       }, 2000)
 
     } catch (error: any) {
-      console.error('Erro no login com passkey:', error)
-      setPasskeyError(error?.message || 'Erro desconhecido no login com passkey')
+      console.error('Passkey login error:', error)
+      setPasskeyError(error?.message || 'Unknown passkey login error')
     } finally {
       setIsPasskeyLoading(false)
     }
@@ -82,23 +82,23 @@ export function LoginForm() {
   return (
     <Card variant="premium" className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl text-white">Entrar no EventCoin</CardTitle>
-        <p className="text-gray-400">Acesse sua conta para continuar</p>
+        <CardTitle className="text-2xl text-white">Login to EventCoin</CardTitle>
+        <p className="text-gray-400">Access your account to continue</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Email"
             type="email"
-            placeholder="seu@email.com"
+            placeholder="your@email.com"
             icon={<Mail className="w-5 h-5" />}
             required
           />
           
           <Input
-            label="Senha"
+            label="Password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Sua senha"
+            placeholder="Your password"
             icon={<Lock className="w-5 h-5" />}
             required
           />
@@ -109,13 +109,13 @@ export function LoginForm() {
                 type="checkbox"
                 className="rounded border-gray-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
               />
-              <span className="ml-2 text-sm text-gray-300">Lembrar de mim</span>
+              <span className="ml-2 text-sm text-gray-300">Remember me</span>
             </label>
             <button
               type="button"
               className="text-sm text-primary-400 hover:text-primary-300"
             >
-              Esqueceu a senha?
+              Forgot password?
             </button>
           </div>
           
@@ -124,7 +124,7 @@ export function LoginForm() {
             className="w-full"
             loading={isLoading}
           >
-            Entrar
+            Login
           </Button>
         </form>
         
@@ -135,7 +135,7 @@ export function LoginForm() {
               <div className="w-full border-t border-white/10" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-dark-800 text-gray-400">Ou entre com</span>
+              <span className="px-2 bg-dark-800 text-gray-400">Or login with</span>
             </div>
           </div>
           
@@ -148,7 +148,7 @@ export function LoginForm() {
               className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
             >
               <Fingerprint className="w-5 h-5 mr-2" />
-              {isPasskeyLoading ? 'Autenticando...' : 'Entrar com Passkey'}
+              {isPasskeyLoading ? 'Authenticating...' : 'Login with Passkey'}
             </Button>
 
             {/* Passkey Status Messages */}
@@ -186,9 +186,9 @@ export function LoginForm() {
         </div>
         
         <p className="mt-6 text-center text-sm text-gray-400">
-          Não tem uma conta?{' '}
+          Don't have an account?{' '}
           <button className="text-primary-400 hover:text-primary-300 font-medium">
-            Criar conta
+            Create account
           </button>
         </p>
       </CardContent>

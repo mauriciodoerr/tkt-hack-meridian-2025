@@ -176,16 +176,16 @@ class StellarAPIClient {
     try {
       const result = await horizonClient.getUserProfile(accountAddress);
 
-      // Se falhou devido a erro de conexão, retorna dados mock para não quebrar a UI
-      if (!result.success && result.error?.includes("Falha após")) {
+      // If failed due to connection error, return mock data to not break UI
+      if (!result.success && result.error?.includes("Failed after")) {
         console.warn(
-          "⚠️ Horizon API indisponível, usando dados mock para o perfil"
+          "⚠️ Horizon API unavailable, using mock data for profile"
         );
         return {
           success: true,
           data: {
             id: accountAddress,
-            name: "Usuário EventCoin",
+            name: "EventCoin User",
             email: "",
             avatar: undefined,
             balance: 0,
@@ -193,17 +193,17 @@ class StellarAPIClient {
             joinedAt: new Date().toISOString(),
             isVerified: true,
           },
-          message: "Dados mock devido a falha de conexão",
+          message: "Mock data due to connection failure",
         };
       }
 
       return result;
     } catch (error) {
-      console.error("Erro inesperado ao obter perfil:", error);
+      console.error("Unexpected error getting profile:", error);
       return {
         success: false,
         data: null as any,
-        error: "Erro inesperado ao obter perfil do usuário",
+        error: "Unexpected error getting user profile",
       };
     }
   }
@@ -577,23 +577,23 @@ class StellarAPIClient {
         };
       }
 
-      // Se falhou devido a erro de conexão, retorna saldo 0
-      if (response.error?.includes("Falha após")) {
-        console.warn("⚠️ Horizon API indisponível, retornando saldo 0");
+      // If failed due to connection error, return balance 0
+      if (response.error?.includes("Failed after")) {
+        console.warn("⚠️ Horizon API unavailable, returning balance 0");
         return {
           success: true,
           data: { balance: 0, tktBalance: 0 },
-          message: "Saldo 0 devido a falha de conexão",
+          message: "Balance 0 due to connection failure",
         };
       }
 
       return response;
     } catch (error) {
-      console.error("Erro inesperado ao obter saldo:", error);
+      console.error("Unexpected error getting balance:", error);
       return {
         success: false,
         data: { balance: 0, tktBalance: 0 },
-        error: "Erro inesperado ao obter saldo da conta",
+        error: "Unexpected error getting account balance",
       };
     }
   }

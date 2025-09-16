@@ -34,7 +34,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const credentialId = getStoredCredentialId()
       
       if (credentialId) {
-        // Deriva a chave pública do passkey
+        // Derive public key from passkey
         const keyMaterial = await deriveKeyFromPasskey(credentialId)
         const keypair = generateStellarKeypair(keyMaterial)
         
@@ -47,22 +47,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         setUser(userData)
         
-        // Console.log da conta existente
-        console.log('🔐 === CONTA DO PASSKEY (EXISTENTE) ===')
+        // Console.log of existing account
+        console.log('🔐 === PASSKEY ACCOUNT (EXISTING) ===')
         console.log('📱 Credential ID:', credentialId)
-        console.log('🔑 Chave Pública Stellar:', keypair.publicKey())
-        console.log('🔒 Chave Privada (derivada):', keypair.secret())
+        console.log('🔑 Stellar Public Key:', keypair.publicKey())
+        console.log('🔒 Private Key (derived):', keypair.secret())
         console.log('🌐 Network:', 'Stellar Testnet')
-        console.log('💾 Dados do Usuário:', userData)
-        console.log('✅ Usuário já autenticado via passkey')
-        console.log('🔐 === FIM DA CONTA ===')
+        console.log('💾 User Data:', userData)
+        console.log('✅ User already authenticated via passkey')
+        console.log('🔐 === END OF ACCOUNT ===')
         
       } else {
         setUser(null)
-        console.log('👤 Usuário não autenticado')
+        console.log('👤 User not authenticated')
       }
     } catch (error) {
-      console.error('Erro ao verificar status de autenticação:', error)
+      console.error('Error checking authentication status:', error)
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -73,10 +73,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true)
       
-      // Registra ou obtém o passkey
+      // Register or get passkey
       const credentialId = await ensurePasskeyWithPrf()
       
-      // Deriva a chave pública
+      // Derive public key
       const keyMaterial = await deriveKeyFromPasskey(credentialId)
       const keypair = generateStellarKeypair(keyMaterial)
       
@@ -89,18 +89,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       setUser(userData)
       
-      // Console.log detalhado da conta do passkey
-      console.log('🔐 === CONTA DO PASSKEY ===')
+      // Detailed console.log of passkey account
+      console.log('🔐 === PASSKEY ACCOUNT ===')
       console.log('📱 Credential ID:', credentialId)
-      console.log('🔑 Chave Pública Stellar:', keypair.publicKey())
-      console.log('🔒 Chave Privada (derivada):', keypair.secret())
+      console.log('🔑 Stellar Public Key:', keypair.publicKey())
+      console.log('🔒 Private Key (derived):', keypair.secret())
       console.log('🌐 Network:', 'Stellar Testnet')
-      console.log('💾 Dados do Usuário:', userData)
-      console.log('✅ Login realizado com sucesso via passkey')
-      console.log('🔐 === FIM DA CONTA ===')
+      console.log('💾 User Data:', userData)
+      console.log('✅ Login successful via passkey')
+      console.log('🔐 === END OF ACCOUNT ===')
       
     } catch (error) {
-      console.error('❌ Erro no login:', error)
+      console.error('❌ Login error:', error)
       throw error
     } finally {
       setIsLoading(false)
@@ -108,24 +108,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const logout = () => {
-    // Console.log antes do logout
+    // Console.log before logout
     if (user) {
-      console.log('🚪 === LOGOUT DA CONTA ===')
-      console.log('📱 Credential ID removido:', user.credentialId)
-      console.log('🔑 Chave Pública removida:', user.publicKey)
-      console.log('💾 Dados limpos do localStorage')
-      console.log('🚪 Logout realizado com sucesso')
-      console.log('🚪 === FIM DO LOGOUT ===')
+      console.log('🚪 === ACCOUNT LOGOUT ===')
+      console.log('📱 Credential ID removed:', user.credentialId)
+      console.log('🔑 Public Key removed:', user.publicKey)
+      console.log('💾 Data cleared from localStorage')
+      console.log('🚪 Logout successful')
+      console.log('🚪 === END OF LOGOUT ===')
     }
     
-    // Remove dados do localStorage
+    // Remove data from localStorage
     localStorage.removeItem('webauthnCredId')
     localStorage.removeItem('passkeyWalletPub')
     
     setUser(null)
   }
 
-  // Verifica status de autenticação na inicialização
+  // Check authentication status on initialization
   useEffect(() => {
     checkAuthStatus()
   }, [])
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider')
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }

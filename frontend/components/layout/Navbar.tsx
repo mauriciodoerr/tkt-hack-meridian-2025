@@ -79,8 +79,8 @@ export function Navbar({ onSearchClick }: NavbarProps) {
       await login()
       setIsMenuOpen(false)
     } catch (error) {
-      console.error('Erro no login:', error)
-      // Aqui você pode adicionar um toast de erro
+      console.error('Login error:', error)
+      // Here you can add an error toast
     } finally {
       setIsLoggingIn(false)
     }
@@ -92,8 +92,8 @@ export function Navbar({ onSearchClick }: NavbarProps) {
       await login()
       setIsMenuOpen(false)
     } catch (error) {
-      console.error('Erro no registro:', error)
-      // Aqui você pode adicionar um toast de erro
+      console.error('Registration error:', error)
+      // Here you can add an error toast
     } finally {
       setIsLoggingIn(false)
     }
@@ -120,16 +120,16 @@ export function Navbar({ onSearchClick }: NavbarProps) {
           {user?.isAuthenticated && (
             <div className="hidden md:flex items-center space-x-8">
               <Link href="/events" className="text-gray-300 hover:text-white transition-colors">
-                Eventos
+                Events
               </Link>
               <Link href="/payments" className="text-gray-300 hover:text-white transition-colors">
-                Pagamentos
+                Payments
               </Link>
               <Link href="/dashboard" className="text-gray-300 hover:text-white transition-colors">
                 Dashboard
               </Link>
               <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
-                Configurações
+                Settings
               </Link>
             </div>
           )}
@@ -141,7 +141,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
             <button
               onClick={onSearchClick}
               className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
-              title="Buscar Eventos"
+              title="Search Events"
             >
               <Search className="w-5 h-5 text-white" />
             </button>
@@ -164,7 +164,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
               className="flex items-center space-x-2"
             >
               <LogOut className="w-4 h-4" />
-              <span>Sair</span>
+              <span>Logout</span>
             </Button>
           </>
         ) : (
@@ -175,7 +175,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
               onClick={handleLogin}
               disabled={isLoggingIn || authLoading}
             >
-              {isLoggingIn ? 'Conectando...' : 'Entrar'}
+              {isLoggingIn ? 'Connecting...' : 'Login'}
             </Button>
             <Button 
               variant="primary" 
@@ -183,7 +183,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
               onClick={handleGetStarted}
               disabled={isLoggingIn || authLoading}
             >
-              {isLoggingIn ? 'Conectando...' : 'Começar'}
+              {isLoggingIn ? 'Connecting...' : 'Get Started'}
             </Button>
           </>
         )}
@@ -209,14 +209,14 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                     className="text-gray-300 hover:text-white transition-colors px-4 py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Eventos
+                    Events
                   </Link>
                   <Link
                     href="/payments"
                     className="text-gray-300 hover:text-white transition-colors px-4 py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Pagamentos
+                    Payments
                   </Link>
                   <Link
                     href="/dashboard"
@@ -230,10 +230,10 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                     className="text-gray-300 hover:text-white transition-colors px-4 py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Configurações
+                    Settings
                   </Link>
                   <div className="flex items-center justify-between px-4 py-2">
-                    <span className="text-gray-300">Buscar</span>
+                    <span className="text-gray-300">Search</span>
                     <button
                       onClick={onSearchClick}
                       className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
@@ -242,7 +242,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                     </button>
                   </div>
                   <div className="flex items-center justify-between px-4 py-2">
-                    <span className="text-gray-300">Notificações</span>
+                    <span className="text-gray-300">Notifications</span>
                     <NotificationBell 
                       notifications={notifications}
                       onMarkAsRead={handleMarkAsRead}
@@ -264,7 +264,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                       onClick={handleLogout}
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Sair</span>
+                      <span>Logout</span>
                     </Button>
                   </div>
                 </>
@@ -277,7 +277,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                     onClick={handleLogin}
                     disabled={isLoggingIn || authLoading}
                   >
-                    {isLoggingIn ? 'Conectando...' : 'Entrar'}
+                    {isLoggingIn ? 'Connecting...' : 'Login'}
                   </Button>
                   <Button 
                     variant="primary" 
@@ -286,7 +286,7 @@ export function Navbar({ onSearchClick }: NavbarProps) {
                     onClick={handleGetStarted}
                     disabled={isLoggingIn || authLoading}
                   >
-                    {isLoggingIn ? 'Conectando...' : 'Começar'}
+                    {isLoggingIn ? 'Connecting...' : 'Get Started'}
                   </Button>
                 </div>
               )}

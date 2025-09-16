@@ -22,10 +22,10 @@ export function RegisterForm() {
     e.preventDefault()
     setIsLoading(true)
     
-    // Simular registro
+    // Simulate registration
     setTimeout(() => {
       setIsLoading(false)
-      // Redirecionar para dashboard
+      // Redirect to dashboard
     }, 2000)
   }
 
@@ -35,48 +35,48 @@ export function RegisterForm() {
       setPasskeyError(null)
       setPasskeySuccess(null)
 
-      // 1) Verifica se já existe uma passkey registrada
+      // 1) Check if passkey is already registered
       const existingCredentialId = getStoredCredentialId()
       
       if (existingCredentialId) {
-        setPasskeySuccess('Você já possui uma passkey registrada! Use o botão "Entrar" para fazer login.')
+        setPasskeySuccess('You already have a registered passkey! Use the "Login" button to sign in.')
         return
       }
 
-      // 2) Registra uma nova passkey
+      // 2) Register a new passkey
       const credentialId = await ensurePasskeyWithPrf()
-      setPasskeySuccess('Passkey registrada com sucesso!')
+      setPasskeySuccess('Passkey registered successfully!')
 
-      // 3) Testa a autenticação chamando o contrato
+      // 3) Test authentication by calling contract
       const contractId = getContractAddress()
       const res = await invokeWithPasskeyWallet({
         credentialIdBase64Url: credentialId,
         contractId: contractId,
-        method: "get_config", // Método simples para testar autenticação
+        method: "get_config", // Simple method to test authentication
         args: [],
       })
 
-      // 4) Verifica o resultado
+      // 4) Check result
       if (res.status === "SIMULATION_FAILED") {
-        throw new Error("Falha na configuração inicial: " + JSON.stringify(res.diag))
+        throw new Error("Initial configuration failed: " + JSON.stringify(res.diag))
       }
 
       if (res.status === "ERROR" || res.status === "TRY_AGAIN_LATER") {
-        throw new Error("Erro na transação: " + res.status)
+        throw new Error("Transaction error: " + res.status)
       }
 
-      // 5) Sucesso - conta criada
-      setPasskeySuccess(`Conta criada com sucesso! Wallet: ${res.publicKey?.slice(0, 8)}...`)
+      // 5) Success - account created
+      setPasskeySuccess(`Account created successfully! Wallet: ${res.publicKey?.slice(0, 8)}...`)
       
-      // Simular redirecionamento para dashboard
+      // Simulate redirect to dashboard
       setTimeout(() => {
         // window.location.href = '/dashboard'
-        console.log('Redirecionando para dashboard...')
+        console.log('Redirecting to dashboard...')
       }, 2000)
 
     } catch (error: any) {
-      console.error('Erro no registro com passkey:', error)
-      setPasskeyError(error?.message || 'Erro desconhecido no registro com passkey')
+      console.error('Passkey registration error:', error)
+      setPasskeyError(error?.message || 'Unknown passkey registration error')
     } finally {
       setIsPasskeyLoading(false)
     }
@@ -85,15 +85,15 @@ export function RegisterForm() {
   return (
     <Card variant="premium" className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl text-white">Criar Conta EventCoin</CardTitle>
-        <p className="text-gray-400">Preencha os dados ou use passkey</p>
+        <CardTitle className="text-2xl text-white">Create EventCoin Account</CardTitle>
+        <p className="text-gray-400">Fill in the data or use passkey</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
-            label="Nome completo"
+            label="Full name"
             type="text"
-            placeholder="Seu nome completo"
+            placeholder="Your full name"
             icon={<User className="w-5 h-5" />}
             required
           />
@@ -101,23 +101,23 @@ export function RegisterForm() {
           <Input
             label="Email"
             type="email"
-            placeholder="seu@email.com"
+            placeholder="your@email.com"
             icon={<Mail className="w-5 h-5" />}
             required
           />
           
           <Input
-            label="Senha"
+            label="Password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Sua senha"
+            placeholder="Your password"
             icon={<Lock className="w-5 h-5" />}
             required
           />
           
           <Input
-            label="Confirmar senha"
+            label="Confirm password"
             type={showConfirmPassword ? 'text' : 'password'}
-            placeholder="Confirme sua senha"
+            placeholder="Confirm your password"
             icon={<Lock className="w-5 h-5" />}
             required
           />
@@ -129,13 +129,13 @@ export function RegisterForm() {
               required
             />
             <span className="ml-2 text-sm text-gray-300">
-              Aceito os{' '}
+              I accept the{' '}
               <button className="text-primary-400 hover:text-primary-300">
-                termos de uso
+                terms of use
               </button>{' '}
-              e{' '}
+              and{' '}
               <button className="text-primary-400 hover:text-primary-300">
-                política de privacidade
+                privacy policy
               </button>
             </span>
           </div>
@@ -145,7 +145,7 @@ export function RegisterForm() {
             className="w-full"
             loading={isLoading}
           >
-            Criar Conta
+            Create Account
           </Button>
         </form>
         
@@ -156,7 +156,7 @@ export function RegisterForm() {
               <div className="w-full border-t border-white/10" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-dark-800 text-gray-400">Ou crie com</span>
+              <span className="px-2 bg-dark-800 text-gray-400">Or create with</span>
             </div>
           </div>
           
@@ -169,7 +169,7 @@ export function RegisterForm() {
               className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white"
             >
               <Fingerprint className="w-5 h-5 mr-2" />
-              {isPasskeyLoading ? 'Criando conta...' : 'Criar com Passkey'}
+              {isPasskeyLoading ? 'Creating account...' : 'Create with Passkey'}
             </Button>
 
             {/* Passkey Status Messages */}
@@ -188,12 +188,12 @@ export function RegisterForm() {
         </div>
         
         <p className="mt-6 text-center text-sm text-gray-400">
-          Já tem uma conta?{' '}
+          Already have an account?{' '}
           <button 
             className="text-primary-400 hover:text-primary-300 font-medium"
             onClick={() => window.location.href = '/login'}
           >
-            Fazer login
+            Sign in
           </button>
         </p>
       </CardContent>

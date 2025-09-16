@@ -55,13 +55,13 @@ export type SubmitStatus =
   | "TRY_AGAIN_LATER"
   | "ERROR";
 
-/** ========== 1) Registro Passkey com PRF habilitado ========== */
+/** ========== 1) Passkey Registration with PRF enabled ========== */
 export async function ensurePasskeyWithPrf(): Promise<string> {
   const existing = getStoredCredentialId();
   if (existing) return existing;
 
   if (!("PublicKeyCredential" in window)) {
-    throw new Error("WebAuthn não suportado neste dispositivo/navegador.");
+    throw new Error("WebAuthn not supported on this device/browser.");
   }
 
   const cred = (await navigator.credentials.create({
@@ -98,10 +98,10 @@ export function getStoredCredentialId(): string | null {
   return localStorage.getItem(CREDENTIAL_ID_KEY);
 }
 
-/** ========== 2) Deriva seed Ed25519 via PRF do Passkey ========== */
+/** ========== 2) Derive Ed25519 seed via Passkey PRF ========== */
 export async function deriveKeyFromPasskey(credentialIdBase64Url: string) {
   if (!("PublicKeyCredential" in window)) {
-    throw new Error("WebAuthn não suportado.");
+    throw new Error("WebAuthn not supported.");
   }
   const credId = b64ToU8(base64urlToBase64(credentialIdBase64Url));
 
@@ -122,26 +122,26 @@ export async function deriveKeyFromPasskey(credentialIdBase64Url: string) {
   const prfOut: ArrayBuffer | undefined = exts?.prf?.results?.first;
   if (!prfOut) {
     throw new Error(
-      "PRF não suportado/habilitado para esta credencial. Registre a passkey com PRF."
+      "PRF not supported/enabled for this credential. Register passkey with PRF."
     );
   }
   return new Uint8Array(prfOut); // 32 bytes
 }
 
-/** ========== 3) Gera Keypair Stellar a partir da seed (32 bytes) ========== */
+/** ========== 3) Generate Stellar Keypair from seed (32 bytes) ========== */
 export function generateStellarKeypair(keyMaterial: ArrayBuffer | Uint8Array) {
   const u8 =
     keyMaterial instanceof Uint8Array
       ? keyMaterial
       : new Uint8Array(keyMaterial);
   if (u8.length < 32)
-    throw new Error("Seed inválida: são necessários 32 bytes.");
+    throw new Error("Invalid seed: 32 bytes required.");
   const seed32 = u8.slice(0, 32);
   const seedBuf = Buffer.from(seed32); // SDK espera Buffer
   return Keypair.fromRawEd25519Seed(seedBuf);
 }
 
-/** ========== 4) Memo + persistência do pubkey derivado ========== */
+/** ========== 4) Memo + persistence of derived pubkey ========== */
 async function getPasskeyKeypair(
   credentialIdBase64Url: string
 ): Promise<Keypair> {
@@ -155,7 +155,7 @@ async function getPasskeyKeypair(
     localStorage.setItem(PASSKEY_WALLET_PUB_KEY, kp.publicKey());
   } else if (storedPub !== kp.publicKey()) {
     console.warn(
-      "[Passkey] Public key mudou — possivelmente nova passkey registrada ou RP/dominio diferente.",
+      "[Passkey] Public key changed — possibly new passkey registered or different RP/domain.",
       { before: storedPub, now: kp.publicKey() }
     );
     // Atualiza o stored para o novo pub (opcional)
@@ -166,7 +166,7 @@ async function getPasskeyKeypair(
   return kp;
 }
 
-/** ========== 5) Garante saldo (testnet) ========== */
+/** ========== 5) Ensure balance (testnet) ========== */
 export async function ensureFundedOnTestnet(pubKey: string) {
   try {
     await server.getAccount(pubKey); // já existe
@@ -174,11 +174,11 @@ export async function ensureFundedOnTestnet(pubKey: string) {
     const resp = await fetch(
       `https://friendbot.stellar.org?addr=${encodeURIComponent(pubKey)}`
     );
-    if (!resp.ok) throw new Error(`Friendbot falhou: ${await resp.text()}`);
+    if (!resp.ok) throw new Error(`Friendbot failed: ${await resp.text()}`);
   }
 }
 
-/** ========== 6) Invoca contrato usando a wallet derivada do Passkey ========== */
+/** ========== 6) Invoke contract using Passkey-derived wallet ========== */
 export async function invokeWithPasskeyWallet(params: {
   credentialIdBase64Url: string;
   contractId: string;
@@ -253,26 +253,26 @@ export async function invokeWithPasskeyWallet(params: {
     return nativeToScVal(v);
   });
 
-  // 1) Keypair derivado de forma determinística (memoizado)
+  // 1) Deterministically derived keypair (memoized)
   const kp = await getPasskeyKeypair(credentialIdBase64Url);
 
-  // 2) Garante que a conta exista (testnet) - APENAS se não for skipFunding
-  // NOTA: O contrato cuida das fees, então não precisamos sempre fundar a conta
+  // 2) Ensure account exists (testnet) - ONLY if not skipFunding
+  // NOTE: Contract handles fees, so we don't always need to fund the account
   await ensureFundedOnTestnet(kp.publicKey());
 
-  // 3) Monta TX com source = wallet do passkey
-  // NOTA: O contrato cuida de todas as fees, incluindo BASE_FEE
+  // 3) Build TX with source = passkey wallet
+  // NOTE: Contract handles all fees, including BASE_FEE
   const account = await server.getAccount(kp.publicKey());
   const contract = new Contract(contractId);
   const tx = new TransactionBuilder(account, {
-    fee: "100", // Contrato paga todas as fees
+    fee: "100", // Contract pays all fees
     networkPassphrase: Networks.TESTNET,
   })
     .addOperation(contract.call(method, ...scArgs))
-    .setTimeout(300) // janela maior para evitar txTooLate
+    .setTimeout(300) // larger window to avoid txTooLate
     .build();
 
-  // 4) Simula (diagnósticos de método/footprint)
+  // 4) Simulate (method/footprint diagnostics)
   const sim = await server.simulateTransaction(tx);
   if (isSimError(sim) || !hasResults(sim)) {
     return {
@@ -283,7 +283,7 @@ export async function invokeWithPasskeyWallet(params: {
     };
   }
 
-  // 5) Prepara (gera footprints) e assina+envia
+  // 5) Prepare (generate footprints) and sign+send
   const prepared = await server.prepareTransaction(tx);
   prepared.sign(kp);
   const sent = await server.sendTransaction(prepared);

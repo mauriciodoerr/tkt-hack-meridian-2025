@@ -226,92 +226,59 @@ export default function PaymentsPage() {
       <Navbar />
 
       <div className="container mx-auto px-4 pt-24 pb-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Pagamentos</h1>
-            <p className="text-gray-400">
-              Gerencie seus pagamentos e transações TKT
-            </p>
-          </div>
-        </div>
-
-        {/* Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* <Card className="bg-dark-800 border-dark-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <Wallet className="w-5 h-5 mr-2" />
-                Saldo BRL
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-white mb-2">
-                R$ {user?.balance?.toFixed(2) || '0.00'}
-              </div>
-              <p className="text-gray-400 text-sm">
-                Saldo disponível para compras
+        {/* Centralized Content - Only what's in the red box */}
+        <div className="flex justify-center mb-8">
+          <div className="w-full max-w-md space-y-8">
+            {/* Header */}
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-white mb-2">Payments</h1>
+              <p className="text-gray-400">
+                Manage your payments and TKT transactions
               </p>
-            </CardContent>
-          </Card> */}
+            </div>
 
-          <Card className="bg-dark-800 border-dark-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <CreditCard className="w-5 h-5 mr-2" />
-                Saldo XLM
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 text-3xl font-bold text-white mb-2">
-                {user?.tktBalance?.toLocaleString("pt-BR") || "0"}
-                <Image
-                  src="/logo-stellar.png"
-                  alt="Stellar logo"
-                  width={20}
-                  height={20}
-                  className="mr-2"
-                />
-              </div>
-              <p className="text-gray-400 text-sm">Tokens para eventos</p>
-            </CardContent>
-          </Card>
-        </div>
+            {/* XLM Balance Card */}
+            <Card className="bg-dark-800 border-dark-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Saldo XLM
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-3xl font-bold text-white mb-2">
+                  {user?.tktBalance?.toLocaleString("pt-BR") || "95,489"}
+                  <Image
+                    src="/logo-stellar.png"
+                    alt="Stellar logo"
+                    width={24}
+                    height={24}
+                  />
+                </div>
+                <p className="text-gray-400 text-sm">Tokens para eventos</p>
+              </CardContent>
+            </Card>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Button
-            onClick={() => setShowQRScanner(true)}
-            className="bg-primary-500 hover:bg-primary-600 text-white h-20 flex flex-col items-center justify-center"
-          >
-            <QrCode className="w-6 h-6 mb-2" />
-            <span className="text-sm">Escanear QR</span>
-          </Button>
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                onClick={() => setShowQRScanner(true)}
+                className="bg-primary-500 hover:bg-primary-600 text-white h-20 flex flex-col items-center justify-center"
+              >
+                <QrCode className="w-6 h-6 mb-2" />
+                <span className="text-sm">Escanear QR</span>
+              </Button>
 
-          {/* <Button
-            onClick={() => setShowTokenPurchase(true)}
-            className="bg-green-500 hover:bg-green-600 text-white h-20 flex flex-col items-center justify-center"
-          >
-            <CreditCard className="w-6 h-6 mb-2" />
-            <span className="text-sm">Comprar TKT</span>
-          </Button> */}
-
-          {/* <Button
-            onClick={() => setShowP2PTransfer(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white h-20 flex flex-col items-center justify-center"
-          >
-            <Send className="w-6 h-6 mb-2" />
-            <span className="text-sm">Transferir</span>
-          </Button> */}
-
-          <Button
-            onClick={() => setShowInviteModal(true)}
-            variant="outline"
-            className="border-dark-700 text-gray-300 hover:bg-dark-800 h-20 flex flex-col items-center justify-center"
-          >
-            <UserPlus className="w-6 h-6 mb-2" />
-            <span className="text-sm">Convidar</span>
-          </Button>
+              <Button
+                onClick={() => setShowInviteModal(true)}
+                variant="outline"
+                className="border-dark-700 text-gray-300 hover:bg-dark-800 h-20 flex flex-col items-center justify-center"
+              >
+                <UserPlus className="w-6 h-6 mb-2" />
+                <span className="text-sm">Convidar</span>
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Recent Transactions */}
@@ -319,14 +286,14 @@ export default function PaymentsPage() {
           <CardHeader>
             <CardTitle className="text-white flex items-center">
               <History className="w-5 h-5 mr-2" />
-              Transações Recentes
+              Recent Transactions
             </CardTitle>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
               <div className="text-center py-8">
                 <History className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-400">Nenhuma transação encontrada</p>
+                <p className="text-gray-400">No transactions found</p>
               </div>
             ) : (
               <div className="space-y-4">
