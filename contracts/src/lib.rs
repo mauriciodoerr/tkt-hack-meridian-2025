@@ -31,13 +31,13 @@ pub struct Event {
     pub id: u64,
     pub name: String,
     pub organizer: Address,
-    pub fee_rate: u32, // Taxa em basis points (500 = 5%)
+    pub fee_rate: u32, // Fee rate in basis points (500 = 5%)
     pub is_active: bool,
     pub created_at: u64,
-    pub total_volume: i128, // Volume total de transações
+    pub total_volume: i128, // Total transaction volume
 }
 
-// Evento emitido quando um evento é criado
+// Event emitted when an event is created
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EventCreated {
@@ -47,7 +47,7 @@ pub struct EventCreated {
     pub fee_rate: u32,
 }
 
-// Evento emitido quando um pagamento é realizado
+// Event emitted when a payment is made
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaymentEvent {
@@ -60,14 +60,14 @@ pub struct PaymentEvent {
     pub fee_rate: u32,
 }
 
-// Dados de configuração do contrato
+// Contract configuration data
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractConfig {
-    pub default_fee_rate: u32, // Taxa padrão em basis points (500 = 5%)
+    pub default_fee_rate: u32, // Default fee rate in basis points (500 = 5%)
     pub admin: Address,
-    pub next_event_id: u64, // Próximo ID disponível para evento
-    pub token_address: Address, // Endereço do contrato de token
+    pub next_event_id: u64, // Next available event ID
+    pub token_address: Address, // Token contract address
 }
 
 // Chaves para armazenamento de dados
@@ -82,11 +82,11 @@ impl EventPaymentContract {
     // FUNÇÕES DE INICIALIZAÇÃO E CONFIGURAÇÃO
     // =====================================
 
-    /// Inicializa o contrato com taxa padrão, admin e token
+    /// Initialize contract with default fee rate, admin and token
     pub fn initialize(env: Env, admin: Address, default_fee_rate: u32, token_address: Address) -> Result<(), ContractError> {
         admin.require_auth();
 
-        // Verifica se o contrato já foi inicializado
+        // Check if contract has already been initialized
         if env.storage().instance().has(&CONFIG) {
             return Err(ContractError::AlreadyInitialized);
         }
@@ -106,14 +106,14 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Consulta configuração do contrato (apenas admin)
+    /// Query contract configuration (admin only)
     pub fn get_config(env: Env, admin: Address) -> Result<ContractConfig, ContractError> {
         admin.require_auth();
 
         let config: ContractConfig = env.storage().instance().get(&CONFIG)
             .ok_or(ContractError::ContractNotInitialized)?;
 
-        // Verificar se quem está chamando é realmente o admin
+        // Verify if caller is actually the admin
         if admin != config.admin {
             return Err(ContractError::NotEventOrganizer); // Reutilizando erro existente
         }
@@ -121,14 +121,14 @@ impl EventPaymentContract {
         Ok(config)
     }
 
-    /// Atualiza taxa padrão (apenas admin)
+    /// Update default fee rate (admin only)
     pub fn update_default_fee_rate(env: Env, admin: Address, new_fee_rate: u32) -> Result<(), ContractError> {
         admin.require_auth();
 
         let mut config: ContractConfig = env.storage().instance().get(&CONFIG)
             .ok_or(ContractError::ContractNotInitialized)?;
 
-        // Verificar se quem está chamando é realmente o admin
+        // Verify if caller is actually the admin
         if admin != config.admin {
             return Err(ContractError::NotEventOrganizer); // Reutilizando erro existente
         }
@@ -161,7 +161,7 @@ impl EventPaymentContract {
             return Err(ContractError::EventNameTooLong);
         }
 
-        // Verificar se já existe evento com esse nome
+        // Check if event with this name already exists
         let name_key = Self::event_name_key(&name);
         if env.storage().persistent().has(&name_key) {
             return Err(ContractError::EventAlreadyExists);
@@ -170,7 +170,7 @@ impl EventPaymentContract {
         let mut config: ContractConfig = env.storage().instance().get(&CONFIG)
             .ok_or(ContractError::ContractNotInitialized)?;
 
-        // Usar taxa personalizada ou padrão
+        // Use custom fee rate or default
         let event_fee_rate = fee_rate.unwrap_or(config.default_fee_rate);
         if event_fee_rate > 1000 {
             return Err(ContractError::FeeRateExceeds10Percent);
@@ -196,7 +196,7 @@ impl EventPaymentContract {
         // Mapear nome para ID
         env.storage().persistent().set(&name_key, &event_id);
 
-        // Atualizar próximo ID
+        // Update next ID
         config.next_event_id += 1;
         env.storage().instance().set(&CONFIG, &config);
 
@@ -219,16 +219,16 @@ impl EventPaymentContract {
         fee_rate: Option<u32>,
         max_allowance: i128
     ) -> Result<u64, ContractError> {
-        // A autenticação será feita dentro de create_event()
+        // Authentication will be done inside create_event()
 
         if max_allowance <= 0 {
             return Err(ContractError::AmountMustBePositive);
         }
 
-        // Criar o evento primeiro (isso já faz organizer.require_auth())
+        // Create event first (this already does organizer.require_auth())
         let event_id = Self::create_event(env.clone(), organizer.clone(), name, fee_rate)?;
 
-        // Obter configuração para acessar token
+        // Get configuration to access token
         let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
         let token = TokenClient::new(&env, &config.token_address);
 
@@ -253,8 +253,8 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Atualiza taxa de um evento específico (apenas organizador)
-    /// TODO: Função privada para evitar que seja chamada publicamente neste momento
+    /// Update fee rate for a specific event (organizer only)
+    /// TODO: Private function to prevent public calls at this time
     fn update_event_fee_rate(env: Env, event_id: u64, new_fee_rate: u32) -> Result<(), ContractError> {
         let mut event = Self::get_event(env.clone(), event_id)?;
 
@@ -276,7 +276,7 @@ impl EventPaymentContract {
     // FUNÇÕES DE CONSULTA
     // =====================================
 
-    /// Consulta informações de um evento
+    /// Query event information
     pub fn get_event(env: Env, event_id: u64) -> Result<Event, ContractError> {
         let event_key = Self::event_key(event_id);
         env.storage().persistent().get(&event_key)
@@ -334,23 +334,23 @@ impl EventPaymentContract {
 
     /// Registra uma carteira para participar de um evento (organizador paga taxa)
     pub fn register_wallet_for_event(env: Env, event_id: u64, wallet: Address) -> Result<(), ContractError> {
-        // Verificar se evento existe e está ativo
+        // Check if event exists and is active
         let event = Self::get_event(env.clone(), event_id)?;
         if !event.is_active {
             return Err(ContractError::EventNotActive);
         }
 
-        // Organizador não pode se registrar no próprio evento
+        // Organizer cannot register for their own event
         if wallet == event.organizer {
             return Err(ContractError::OrganizerCannotRegister);
         }
 
-        // Organizador autoriza a operação (ele paga a taxa)
+        // Organizer authorizes the operation (they pay the fee)
         event.organizer.require_auth();
 
         let registration_key = Self::wallet_registration_key(event_id, &wallet);
 
-        // Verificar se já está registrada
+        // Check if already registered
         if env.storage().persistent().has(&registration_key) {
             return Err(ContractError::WalletAlreadyRegistered);
         }
@@ -365,12 +365,12 @@ impl EventPaymentContract {
         // Verificar se evento existe para obter organizador
         let event = Self::get_event(env.clone(), event_id)?;
 
-        // Organizador autoriza a operação (ele paga a taxa)
+        // Organizer authorizes the operation (they pay the fee)
         event.organizer.require_auth();
 
         let registration_key = Self::wallet_registration_key(event_id, &wallet);
 
-        // Verificar se está registrada
+        // Check if registered
         if !env.storage().persistent().has(&registration_key) {
             return Err(ContractError::WalletNotRegistered);
         }
@@ -380,7 +380,7 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Verifica se uma carteira está registrada para um evento
+    /// Check if a wallet is registered for an event
     pub fn is_wallet_registered(env: Env, event_id: u64, wallet: Address) -> bool {
         let registration_key = Self::wallet_registration_key(event_id, &wallet);
         env.storage().persistent().has(&registration_key)
@@ -390,7 +390,7 @@ impl EventPaymentContract {
     // FUNÇÕES DE PAGAMENTO
     // =====================================
 
-    /// Realiza pagamento para um evento específico com organizador pagando taxa
+    /// Make payment for a specific event with organizer paying fee
     pub fn event_payment(
         env: Env,
         event_id: u64,
@@ -404,13 +404,13 @@ impl EventPaymentContract {
             return Err(ContractError::AmountMustBePositive);
         }
 
-        // Verificar se evento existe e está ativo
+        // Check if event exists and is active
         let mut event = Self::get_event(env.clone(), event_id)?;
         if !event.is_active {
             return Err(ContractError::EventNotActive);
         }
 
-        // Verificar se ambas as carteiras estão registradas no evento
+        // Check if both wallets are registered for the event
         if !Self::is_wallet_registered(env.clone(), event_id, from.clone()) {
             return Err(ContractError::WalletNotRegistered);
         }
@@ -418,7 +418,7 @@ impl EventPaymentContract {
             return Err(ContractError::WalletNotRegistered);
         }
 
-        // Obter configuração para acessar token
+        // Get configuration to access token
         let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
         let token = TokenClient::new(&env, &config.token_address);
 
@@ -428,22 +428,18 @@ impl EventPaymentContract {
             return Err(ContractError::InsufficientBalanceFromSender);
         }
 
-        // Calcula a taxa usando a taxa específica do evento
-        let fee_amount = (amount * event.fee_rate as i128) / 1000;
+        // Calculate fee using event's specific fee rate
+        let fee_amount = (amount * event.fee_rate as i128) / 10000;
         let net_amount = amount - fee_amount;
 
-        // Verificar se organizador tem allowance suficiente para pagar a taxa
-        let organizer_allowance = token.allowance(&event.organizer, &env.current_contract_address());
-        if organizer_allowance < fee_amount {
-            return Err(ContractError::InsufficientAllowance);
-        }
-
-        // Realizar transferências
-        // 1. Transfere valor total do remetente para o contrato
+        // Perform transfers
+        // 1. Transfer full amount from sender to contract
         token.transfer(&from, &env.current_contract_address(), &amount);
 
-        // 2. Transfere valor líquido do contrato para o destinatário
+        // 2. Transfer net amount from contract to recipient
         token.transfer(&env.current_contract_address(), &to, &net_amount);
+
+        // Fee stays in contract for organizer to withdraw later
 
         // 3. Registrar taxa acumulada para posterior saque
         let fee_key = Self::event_fee_key(event_id);
@@ -469,7 +465,7 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Realiza pagamento geral (sem evento específico) - mantém compatibilidade
+    /// Make general payment (without specific event) - maintains compatibility
     pub fn payment_with_third_party_fee(
         env: Env,
         from: Address,
@@ -487,8 +483,8 @@ impl EventPaymentContract {
         let config: ContractConfig = env.storage().instance().get(&CONFIG)
             .ok_or(ContractError::ContractNotInitialized)?;
 
-        // Calcula a taxa usando taxa padrão
-        let fee_amount = (amount * config.default_fee_rate as i128) / 1000;
+        // Calculate fee using default rate
+        let fee_amount = (amount * config.default_fee_rate as i128) / 10000;
         let net_amount = amount - fee_amount;
 
         // Criar cliente do token
@@ -500,11 +496,11 @@ impl EventPaymentContract {
             return Err(ContractError::InsufficientBalanceFromSender);
         }
 
-        // Realizar as transferências reais
+        // Perform actual transfers
         // 1. Transfere valor total do remetente para o contrato
         token.transfer(&from, &env.current_contract_address(), &amount);
 
-        // 2. Transfere valor líquido do contrato para o destinatário
+        // 2. Transfer net amount from contract to recipient
         token.transfer(&env.current_contract_address(), &to, &net_amount);
 
         // 3. Transfere taxa do contrato para o pagador de taxa
@@ -524,7 +520,7 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Realiza pagamento com fee_payer pré-autorizado (sem assinatura)
+    /// Make payment with pre-authorized fee_payer (no signature)
     pub fn payment_with_auth_fee_payer(
         env: Env,
         from: Address,
@@ -542,7 +538,7 @@ impl EventPaymentContract {
             .ok_or(ContractError::ContractNotInitialized)?;
 
         // Calcula a taxa
-        let fee_amount = (amount * config.default_fee_rate as i128) / 1000;
+        let fee_amount = (amount * config.default_fee_rate as i128) / 10000;
 
         // Criar cliente do token
         let token = TokenClient::new(&env, &config.token_address);
@@ -559,19 +555,19 @@ impl EventPaymentContract {
             return Err(ContractError::InsufficientBalanceFromSender);
         }
 
-        // Realizar as transferências reais
+        // Perform actual transfers
         let net_amount = amount - fee_amount;
 
         // 1. Transfere valor total do remetente para o contrato
         token.transfer(&from, &env.current_contract_address(), &amount);
 
-        // 2. Transfere valor líquido do contrato para o destinatário
+        // 2. Transfer net amount from contract to recipient
         token.transfer(&env.current_contract_address(), &to, &net_amount);
 
         // 3. Usa allowance do fee_payer para pagar a taxa como recompensa
         token.transfer_from(&env.current_contract_address(), &fee_payer, &fee_payer, &fee_amount);
 
-        // Emite evento (event_id = 0 para pagamentos com autorização geral)
+        // Emit event (event_id = 0 for general authorized payments)
         PaymentEvent {
             event_id: 0,
             from: from.clone(),
@@ -589,8 +585,8 @@ impl EventPaymentContract {
     // FUNÇÕES DE AUTORIZAÇÃO
     // =====================================
 
-    /// Autoriza o contrato a usar tokens do usuário para pagar fees
-    /// Nota: Esta função chama approve() no contrato de token
+    /// Authorize contract to use user's tokens to pay fees
+    /// Note: This function calls approve() on token contract
     pub fn authorize_fee_payments(env: Env, fee_payer: Address, max_fee_amount: i128) -> Result<(), ContractError> {
         fee_payer.require_auth();
 
@@ -607,14 +603,14 @@ impl EventPaymentContract {
         Ok(())
     }
 
-    /// Remove autorização para pagamento automático de fees
+    /// Remove authorization for automatic fee payment
     pub fn revoke_fee_authorization(env: Env, fee_payer: Address) {
         fee_payer.require_auth();
 
         let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
         let token = TokenClient::new(&env, &config.token_address);
 
-        // Remove allowance do token (zera a autorização)
+        // Remove token allowance (zero authorization)
         token.approve(&fee_payer, &env.current_contract_address(), &0, &1);
     }
 
@@ -632,7 +628,7 @@ impl EventPaymentContract {
         let event = Self::get_event(env.clone(), event_id)?;
         event.organizer.require_auth();
 
-        // Obter configuração para acessar token
+        // Get configuration to access token
         let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
         let token = TokenClient::new(&env, &config.token_address);
 
@@ -666,14 +662,14 @@ impl EventPaymentContract {
         let accumulated_fees: i128 = env.storage().persistent().get(&fee_key).unwrap_or(0);
 
         if accumulated_fees > 0 {
-            // Obter configuração para pegar endereço do token
+            // Get configuration to get token address
             let config: ContractConfig = env.storage().instance().get(&CONFIG).unwrap();
 
             // Transferir tokens reais para o organizador
             let token = TokenClient::new(&env, &config.token_address);
             token.transfer(&env.current_contract_address(), &event.organizer, &accumulated_fees);
 
-            // Zera as taxas acumuladas APENAS após transferência bem-sucedida
+            // Zero accumulated fees ONLY after successful transfer
             env.storage().persistent().remove(&fee_key);
         }
 
@@ -685,23 +681,23 @@ impl EventPaymentContract {
     // =====================================
 
 
-    // Função auxiliar para gerar chave de evento
+    // Helper function to generate event key
     fn event_key(event_id: u64) -> (&'static str, u64) {
         ("event", event_id)
     }
 
-    // Função auxiliar para gerar chave de nome de evento
+    // Helper function to generate event name key
     fn event_name_key(name: &String) -> (&'static str, String) {
         ("event_name", name.clone())
     }
 
 
-    // Função auxiliar para gerar chave de taxas acumuladas por evento
+    // Helper function to generate accumulated fees key by event
     fn event_fee_key(event_id: u64) -> (&'static str, u64) {
         ("event_fee", event_id)
     }
 
-    // Função auxiliar para gerar chave de registro de carteira em evento
+    // Helper function to generate wallet registration key in event
     fn wallet_registration_key(event_id: u64, wallet: &Address) -> (u64, &str, Address) {
         (event_id, "registered", wallet.clone())
     }

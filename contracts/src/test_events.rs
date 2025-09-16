@@ -3,7 +3,7 @@
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, Env, String, contractimpl, contract};
 
-// Mock Token Contract para testes
+// Mock Token Contract for tests
 #[contract]
 pub struct MockToken;
 
@@ -11,7 +11,7 @@ pub struct MockToken;
 impl MockToken {
     pub fn balance(env: Env, id: Address) -> i128 {
         let key = ("balance", id);
-        env.storage().temporary().get(&key).unwrap_or(1000000) // Saldo padrão alto para testes
+        env.storage().temporary().get(&key).unwrap_or(1000000) // High default balance for tests
     }
 
     pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
@@ -42,7 +42,7 @@ impl MockToken {
     pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) {
         spender.require_auth();
 
-        // Verificar allowance
+        // Check allowance
         let allowance_key = ("allowance", from.clone(), spender);
         let current_allowance: i128 = env.storage().temporary().get(&allowance_key).unwrap_or(0);
 
@@ -50,10 +50,10 @@ impl MockToken {
             panic!("Insufficient allowance");
         }
 
-        // Atualizar allowance
+        // Update allowance
         env.storage().temporary().set(&allowance_key, &(current_allowance - amount));
 
-        // Fazer transferência
+        // Make transfer
         let from_key = ("balance", from.clone());
         let to_key = ("balance", to.clone());
 
@@ -65,22 +65,22 @@ impl MockToken {
     }
 }
 
-// Função auxiliar para configurar testes
+// Helper function to set up tests
 fn setup_test<'a>() -> (Env, EventPaymentContractClient<'a>, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
 
-    // Registrar contrato mock de token
+    // Register mock token contract
     let token_contract_id = env.register(MockToken, ());
 
-    // Registrar contrato principal
+    // Register main contract
     let contract_id = env.register(EventPaymentContract, ());
     let client = EventPaymentContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
 
-    // Inicializar contrato com token mock
-    client.initialize(&admin, &50, &token_contract_id);
+    // Initialize contract with mock token (500 = 5% fee rate)
+    client.initialize(&admin, &500, &token_contract_id);
 
     (env, client, admin, token_contract_id)
 }
@@ -90,18 +90,18 @@ fn test_event_creation() {
     let (env, client, _admin, _token_address) = setup_test();
     let organizer = Address::generate(&env);
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Rock Festival 2024");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
     assert_eq!(event_id, 1);
 
-    // Verificar evento criado
+    // Verify event created
     let event = client.get_event(&event_id);
     assert_eq!(event.id, 1);
     assert_eq!(event.name, event_name);
     assert_eq!(event.organizer, organizer);
-    assert_eq!(event.fee_rate, 50); // Taxa padrão
+    assert_eq!(event.fee_rate, 500); // Default fee rate
     assert_eq!(event.is_active, true);
     assert_eq!(event.total_volume, 0);
 }
@@ -111,7 +111,7 @@ fn test_event_creation_with_custom_fee() {
     let (env, client, _admin, _token_address) = setup_test();
     let organizer = Address::generate(&env);
 
-    // Criar evento com taxa personalizada de 3%
+    // Create event com taxa personalizada de 3%
     let event_name = String::from_str(&env, "Jazz Night");
     let custom_fee = Some(30); // 3%
     let event_id = client.create_event(&organizer, &event_name, &custom_fee);
@@ -126,24 +126,24 @@ fn test_wallet_registration() {
     let organizer = Address::generate(&env);
     let user = Address::generate(&env);
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Music Festival");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Verificar que carteira não está registrada inicialmente
+    // Verify wallet is not registered initially
     assert_eq!(client.is_wallet_registered(&event_id, &user), false);
 
-    // Registrar carteira no evento
+    // Register carteira no evento
     client.register_wallet_for_event(&event_id, &user);
 
-    // Verificar que está registrada agora
+    // Verify it's registered now
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
 
-    // Tentar registrar novamente deve falhar
+    // Try registrar novamente deve falhar
     let result = client.try_register_wallet_for_event(&event_id, &user);
     assert!(result.is_err());
 
-    // Organizador não pode se registrar
+    // Organizer cannot register
     let organizer_result = client.try_register_wallet_for_event(&event_id, &organizer);
     assert!(organizer_result.is_err());
 }
@@ -155,11 +155,11 @@ fn test_wallet_unregistration() {
     let user = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Test Event");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Registrar carteira
+    // Register carteira
     client.register_wallet_for_event(&event_id, &user);
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
 
@@ -167,7 +167,7 @@ fn test_wallet_unregistration() {
     client.unregister_wallet_from_event(&event_id, &user);
     assert_eq!(client.is_wallet_registered(&event_id, &user), false);
 
-    // Tentar desregistrar novamente deve falhar
+    // Try desregistrar novamente deve falhar
     let result = client.try_unregister_wallet_from_event(&event_id, &user);
     assert!(result.is_err());
 }
@@ -186,14 +186,14 @@ fn test_wallet_registration_multiple_events() {
     let event1_id = client.create_event(&organizer1, &event1_name, &None);
     let event2_id = client.create_event(&organizer2, &event2_name, &None);
 
-    // Registrar usuário apenas no primeiro evento
+    // Register user only in first event
     client.register_wallet_for_event(&event1_id, &user);
 
-    // Verificar que está registrado apenas no primeiro
+    // Verify registered only in first
     assert_eq!(client.is_wallet_registered(&event1_id, &user), true);
     assert_eq!(client.is_wallet_registered(&event2_id, &user), false);
 
-    // Registrar no segundo evento também
+    // Register in second event too
     client.register_wallet_for_event(&event2_id, &user);
     assert_eq!(client.is_wallet_registered(&event2_id, &user), true);
 
@@ -210,11 +210,11 @@ fn test_wallet_registration_inactive_event() {
     let user = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Inactive Event");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Registrar usuário enquanto evento está ativo
+    // Register user while event is active
     client.register_wallet_for_event(&event_id, &user);
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
 
@@ -226,7 +226,7 @@ fn test_wallet_registration_inactive_event() {
     let result = client.try_register_wallet_for_event(&event_id, &user2);
     assert!(result.is_err());
 
-    // Mas usuário já registrado ainda deve aparecer como registrado
+    // But already registered user should still appear as registered
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
 
     // E deve conseguir se desregistrar mesmo com evento inativo
@@ -240,18 +240,18 @@ fn test_organizer_restriction() {
     let organizer = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Organizer Test");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Organizador não deve conseguir se registrar
+    // Organizer should not be able to register
     let result = client.try_register_wallet_for_event(&event_id, &organizer);
     assert!(result.is_err());
 
-    // Verificar que organizador não está registrado
+    // Verify organizer is not registered
     assert_eq!(client.is_wallet_registered(&event_id, &organizer), false);
 
-    // Outros usuários devem conseguir se registrar normalmente
+    // Other users should be able to register normally
     let user = Address::generate(&env);
     client.register_wallet_for_event(&event_id, &user);
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
@@ -266,28 +266,28 @@ fn test_payment_requires_registration() {
     let unregistered = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Payment Test");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Registrar apenas o sender
+    // Register apenas o sender
     client.register_wallet_for_event(&event_id, &sender);
 
-    // Pagamento deve falhar se receiver não estiver registrado
+    // Payment should fail if receiver is not registered
     let result = client.try_event_payment(&event_id, &sender, &receiver, &100);
     assert!(result.is_err());
 
-    // Registrar receiver
+    // Register receiver
     client.register_wallet_for_event(&event_id, &receiver);
 
     // Agora pagamento deve funcionar
     client.event_payment(&event_id, &sender, &receiver, &100);
 
-    // Pagamento com carteira não registrada como sender deve falhar
+    // Payment with unregistered wallet as sender should fail
     let result = client.try_event_payment(&event_id, &unregistered, &receiver, &50);
     assert!(result.is_err());
 
-    // Pagamento com carteira não registrada como receiver deve falhar
+    // Payment with unregistered wallet as receiver should fail
     let result = client.try_event_payment(&event_id, &sender, &unregistered, &50);
     assert!(result.is_err());
 }
@@ -299,23 +299,23 @@ fn test_registration_edge_cases() {
     let user = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Edge Cases Event");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Tentar desregistrar carteira que nunca foi registrada
+    // Try desregistrar carteira que nunca foi registrada
     let result = client.try_unregister_wallet_from_event(&event_id, &user);
     assert!(result.is_err());
 
-    // Tentar registrar em evento inexistente
+    // Try registrar em evento inexistente
     let fake_event_id = 999;
     let result = client.try_register_wallet_for_event(&fake_event_id, &user);
     assert!(result.is_err());
 
-    // Tentar consultar registro em evento inexistente
+    // Try consultar registro em evento inexistente
     assert_eq!(client.is_wallet_registered(&fake_event_id, &user), false);
 
-    // Registrar, desregistrar e tentar registrar novamente (deve funcionar)
+    // Register, desregistrar e tentar registrar novamente (deve funcionar)
     client.register_wallet_for_event(&event_id, &user);
     assert_eq!(client.is_wallet_registered(&event_id, &user), true);
 
@@ -335,25 +335,25 @@ fn test_event_payment() {
     let receiver = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Concert");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Registrar carteiras no evento
+    // Register wallets for event
     client.register_wallet_for_event(&event_id, &sender);
     client.register_wallet_for_event(&event_id, &receiver);
 
-    // Realizar pagamento de 200 (taxa = 10, líquido = 190)
+    // Make payment of 200 (fee = 10, net = 190)
     client.event_payment(&event_id, &sender, &receiver, &200);
 
-    // Verificar taxas acumuladas para o organizador
+    // Verify taxas acumuladas para o organizador
     assert_eq!(client.get_event_fees(&event_id), 10); // Taxa travada no contrato
 
-    // Verificar volume do evento
+    // Verify volume do evento
     let event = client.get_event(&event_id);
     assert_eq!(event.total_volume, 200);
 
-    // Tentar pagamento com carteira não registrada deve falhar
+    // Try payment with unregistered wallet should fail
     let unregistered = Address::generate(&env);
     let result = client.try_event_payment(&event_id, &unregistered, &receiver, &100);
     assert!(result.is_err());
@@ -377,11 +377,11 @@ fn test_multiple_events() {
     assert_eq!(event1_id, 1);
     assert_eq!(event2_id, 2);
 
-    // Registrar usuário em ambos eventos
+    // Register user in both events
     client.register_wallet_for_event(&event1_id, &user);
     client.register_wallet_for_event(&event2_id, &user);
 
-    // Verificar registros independentes
+    // Verify registros independentes
     assert_eq!(client.is_wallet_registered(&event1_id, &user), true);
     assert_eq!(client.is_wallet_registered(&event2_id, &user), true);
     assert_eq!(client.is_wallet_registered(&event1_id, &organizer2), false); // Sem acesso cruzado
@@ -393,11 +393,11 @@ fn test_event_status_management() {
     let organizer = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Test Event");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Verificar evento ativo por padrão
+    // Verify event active by default
     let event = client.get_event(&event_id);
     assert_eq!(event.is_active, true);
 
@@ -407,7 +407,7 @@ fn test_event_status_management() {
     let event = client.get_event(&event_id);
     assert_eq!(event.is_active, false);
 
-    // Tentar registrar em evento inativo deve falhar
+    // Try registrar em evento inativo deve falhar
     let user = Address::generate(&env);
     let result = client.try_register_wallet_for_event(&event_id, &user);
     assert!(result.is_err());
@@ -420,11 +420,11 @@ fn test_event_fee_rate_update() {
     let organizer = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Festival");
     let event_id = client.create_event(&organizer, &event_name, &Some(30)); // 3%
 
-    // Verificar taxa inicial
+    // Verify taxa inicial
     let event = client.get_event(&event_id);
     assert_eq!(event.fee_rate, 30);
 
@@ -442,7 +442,7 @@ fn test_get_event_by_name() {
     let organizer = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Summer Festival");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
@@ -459,13 +459,13 @@ fn test_get_event_by_name() {
 fn test_initialize_already_initialized() {
     let (_env, client, admin, token_address) = setup_test();
 
-    // Setup já fez a primeira inicialização, então segunda deve falhar
+    // Setup already did first initialization, so second should fail
     let result = client.try_initialize(&admin, &600, &token_address);
     assert!(result.is_err());
 
-    // Verificar que a configuração original não foi alterada
+    // Verify original configuration was not changed
     let config = client.get_config(&admin);
-    assert_eq!(config.default_fee_rate, 50); // Taxa original
+    assert_eq!(config.default_fee_rate, 500); // Taxa original
     assert_eq!(config.admin, admin);
     assert_eq!(config.next_event_id, 1);
 }
@@ -478,21 +478,21 @@ fn test_event_fee_withdrawal() {
     let receiver = Address::generate(&env);
 
 
-    // Criar evento
+    // Create event
     let event_name = String::from_str(&env, "Music Festival");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
-    // Registrar carteiras e fazer pagamentos
+    // Register carteiras e fazer pagamentos
     client.register_wallet_for_event(&event_id, &sender);
     client.register_wallet_for_event(&event_id, &receiver);
 
     client.event_payment(&event_id, &sender, &receiver, &200); // Taxa: 10 (5% de 200)
     client.event_payment(&event_id, &sender, &receiver, &300); // Taxa: 15 (5% de 300)
 
-    // Verificar taxas acumuladas
+    // Verify taxas acumuladas
     assert_eq!(client.get_event_fees(&event_id), 25); // 10 + 15
 
-    // Tentar sacar com evento ativo deve falhar
+    // Try sacar com evento ativo deve falhar
     let withdraw_result = client.try_withdraw_event_fees(&event_id);
     assert!(withdraw_result.is_err());
 
@@ -503,7 +503,7 @@ fn test_event_fee_withdrawal() {
     let withdrawn = client.withdraw_event_fees(&event_id);
     assert_eq!(withdrawn, 25);
 
-    // Verificar que taxas foram zeradas
+    // Verify que taxas foram zeradas
     assert_eq!(client.get_event_fees(&event_id), 0);
 
     // Segunda tentativa de saque deve retornar 0
@@ -516,19 +516,19 @@ fn test_create_event_with_allowance() {
     let (env, client, _admin, _token_address) = setup_test();
     let organizer = Address::generate(&env);
 
-    // Criar evento com allowance automático
+    // Create event with automatic allowance
     let event_name = String::from_str(&env, "Festival with Allowance");
     let max_allowance = 1000;
     let event_id = client.create_event_with_allowance(&organizer, &event_name, &None, &max_allowance);
 
     assert_eq!(event_id, 1);
 
-    // Verificar se o evento foi criado corretamente
+    // Verify se o evento foi criado corretamente
     let event = client.get_event(&event_id);
     assert_eq!(event.organizer, organizer);
     assert_eq!(event.name, event_name);
 
-    // Verificar se o allowance foi definido
+    // Verify se o allowance foi definido
     let allowance = client.get_fee_authorization(&organizer);
     assert_eq!(allowance, max_allowance);
 }
@@ -538,7 +538,7 @@ fn test_increase_event_allowance() {
     let (env, client, _admin, _token_address) = setup_test();
     let organizer = Address::generate(&env);
 
-    // Criar evento primeiro
+    // Create event primeiro
     let event_name = String::from_str(&env, "Festival");
     let event_id = client.create_event(&organizer, &event_name, &None);
 
@@ -549,7 +549,7 @@ fn test_increase_event_allowance() {
     // Aumentar allowance
     client.increase_event_allowance(&event_id, &300);
 
-    // Verificar novo allowance
+    // Verify novo allowance
     let new_allowance = client.get_fee_authorization(&organizer);
     assert_eq!(new_allowance, 800); // 500 + 300
 }
@@ -562,23 +562,23 @@ fn test_admin_only_functions() {
 
     // Admin deve conseguir acessar get_config
     let config = client.get_config(&admin);
-    assert_eq!(config.default_fee_rate, 50);
+    assert_eq!(config.default_fee_rate, 500);
     assert_eq!(config.admin, admin);
 
-    // Admin deve conseguir atualizar taxa padrão
+    // Admin should be able to update default fee rate
     client.update_default_fee_rate(&admin, &30);
     let updated_config = client.get_config(&admin);
     assert_eq!(updated_config.default_fee_rate, 30);
 
-    // Non-admin não deve conseguir acessar get_config
+    // Non-admin should not be able to access get_config
     let get_config_result = client.try_get_config(&non_admin);
     assert!(get_config_result.is_err());
 
-    // Non-admin não deve conseguir atualizar taxa padrão
+    // Non-admin should not be able to update default fee rate
     let update_result = client.try_update_default_fee_rate(&non_admin, &400);
     assert!(update_result.is_err());
 
-    // Verificar que taxa não foi alterada por non-admin
+    // Verify fee rate was not changed by non-admin
     let final_config = client.get_config(&admin);
     assert_eq!(final_config.default_fee_rate, 30); // Ainda deve ser 30
 }
