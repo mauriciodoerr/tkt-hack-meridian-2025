@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { apiClientInstance } from "../utils/api-client-factory";
 import { Payment, User } from "../types";
+import Image from "next/image";
 
 export default function PaymentsPage() {
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -262,8 +263,15 @@ export default function PaymentsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white mb-2">
-                {user?.tktBalance?.toLocaleString("pt-BR") || "0"} XLM
+              <div className="flex gap-2 text-3xl font-bold text-white mb-2">
+                {user?.tktBalance?.toLocaleString("pt-BR") || "0"}
+                <Image
+                  src="/logo-stellar.png"
+                  alt="Stellar logo"
+                  width={20}
+                  height={20}
+                  className="mr-2"
+                />
               </div>
               <p className="text-gray-400 text-sm">Tokens para eventos</p>
             </CardContent>
